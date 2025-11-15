@@ -1,0 +1,69 @@
+/* /src/pages/MinhasInscricoes.module.css */
+
+.listContainer {
+  list-style: none;
+  padding: 0;
+  max-width: 800px;
+  margin: 0 auto;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-md);
+}
+
+.listItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.listItem:last-child {
+  border-bottom: none;
+}
+
+.itemDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.itemDetails strong {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--color-text-dark);
+}
+
+.itemDetails p {
+  margin: 0;
+  color: var(--color-text-light);
+}
+
+.cancelButton {
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 5px;
+  background-color: #e74c3c; /* Vermelho */
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.cancelButton:hover {
+  background-color: #c0392b; /* Vermelho escuro */
+}
+
+/* --- CLASSE NOVA --- */
+.statusTag {
+  padding: 0.6rem 1rem;
+  border-radius: 5px;
+  background-color: #e8f5e9; /* Fundo verde claro */
+  color: #16a34a; /* Texto verde escuro */
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+}
