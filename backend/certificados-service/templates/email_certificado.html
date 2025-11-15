@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seu Certificado está Pronto!</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #2980b9;
+            margin: 0;
+            font-size: 28px;
+        }
+        
+        .header .subtitle {
+            color: #7f8c8d;
+            font-size: 16px;
+            margin-top: 5px;
+        }
+        
+        .content {
+            margin: 20px 0;
+        }
+        
+        .greeting {
+            font-size: 18px;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        
+        .event-info {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #3498db;
+        }
+        
+        .event-info h3 {
+            color: #2980b9;
+            margin-top: 0;
+            font-size: 20px;
+        }
+        
+        .event-info p {
+            margin: 8px 0;
+            color: #5d6d7e;
+        }
+        
+        .certificate-info {
+            background-color: #e8f5e8;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #27ae60;
+        }
+        
+        .validation-code {
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            font-weight: bold;
+            color: #e74c3c;
+            background-color: #fdf2f2;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin: 15px 0;
+            border: 2px dashed #e74c3c;
+        }
+        
+        .button {
+            display: inline-block;
+            background-color: #3498db;
+            color: white;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 10px 0;
+            transition: background-color 0.3s;
+        }
+        
+        .button:hover {
+            background-color: #2980b9;
+        }
+        
+        .button.secondary {
+            background-color: #95a5a6;
+        }
+        
+        .button.secondary:hover {
+            background-color: #7f8c8d;
+        }
+        
+        .actions {
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        
+        .footer a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        .icon {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        .success-icon {
+            color: #27ae60;
+            font-size: 24px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><span class="success-icon">✓</span>Certificado de Participação</h1>
+            <p class="subtitle">Seu certificado foi gerado com sucesso!</p>
+        </div>
+        
+        <div class="content">
+            <p class="greeting">
+                Olá, <strong>{{ participante_nome }}</strong>!
+            </p>
+            
+            <p>
+                É com grande satisfação que informamos que seu <strong>Certificado de Participação</strong> 
+                foi gerado e está disponível para download.
+            </p>
+            
+            <div class="event-info">
+                <h3>{{ evento_nome }}</h3>
+                {% if evento_descricao %}
+                <p><strong>Descrição:</strong> {{ evento_descricao }}</p>
+                {% endif %}
+                <p><strong>Data:</strong> {{ data_inicio_formatada }}{% if data_fim_formatada and data_fim_formatada != data_inicio_formatada %} a {{ data_fim_formatada }}{% endif %}</p>
+                {% if carga_horaria %}
+                <p><strong>Carga horária:</strong> {{ carga_horaria }} horas</p>
+                {% endif %}
+            </div>
+            
+            <div class="certificate-info">
+                <h3>Informações do Certificado</h3>
+                <p><strong>Data de emissão:</strong> {{ data_geracao_formatada }}</p>
+                <p><strong>Código de validação:</strong></p>
+                <div class="validation-code">{{ codigo_validacao }}</div>
+                <p><small>
+                    Guarde este código com segurança. Ele pode ser usado para validar 
+                    a autenticidade do seu certificado.
+                </small></p>
+            </div>
+            
+            <div class="actions">
+                <p><strong>O certificado está anexado a este email em formato PDF.</strong></p>
+                
+                {% if url_download %}
+                <a href="{{ url_download }}" class="button">
+                    📥 Baixar Certificado
+                </a>
+                {% endif %}
+                
+                {% if url_validacao %}
+                <a href="{{ url_validacao }}" class="button secondary">
+                    🔍 Validar Certificado
+                </a>
+                {% endif %}
+            </div>
+            
+            <p>
+                <strong>Parabéns pela sua participação!</strong> 
+                Esperamos que tenha aproveitado o evento e que o conhecimento adquirido 
+                seja útil em sua jornada profissional e pessoal.
+            </p>
+            
+            <p>
+                Este certificado é um reconhecimento oficial da sua participação no evento 
+                e pode ser utilizado para comprovação em currículos, portfólios ou 
+                processos de certificação profissional.
+            </p>
+        </div>
+        
+        <div class="footer">
+            <p>
+                <strong>Sistema de Gestão de Eventos</strong><br>
+                Este é um email automático, não responda a esta mensagem.
+            </p>
+            
+            <p>
+                Para dúvidas ou suporte, visite nosso site ou entre em contato com a organização do evento.
+            </p>
+            
+            <p>
+                <small>
+                    Certificado gerado automaticamente em {{ data_geracao_formatada }}
+                </small>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

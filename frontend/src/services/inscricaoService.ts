@@ -1,8 +1,8 @@
 // /src/services/inscricaoService.ts
 import { createPrivateApi } from './api';
 
-// Seguindo seu diagrama, este será o terceiro serviço (porta 8002)
-const INSCRICOES_SERVICE_URL = 'http://localhost:8002/api';
+// Inscricoes-service roda na porta 8003
+const INSCRICOES_SERVICE_URL = 'http://127.0.0.1:8003/api';
 
 // API privada para Inscrições (requer autenticação)
 const privateApi = createPrivateApi(INSCRICOES_SERVICE_URL);
@@ -11,14 +11,28 @@ const privateApi = createPrivateApi(INSCRICOES_SERVICE_URL);
 export interface EventoResumido {
   id: string | number;
   nome: string;
-  data: string;
+  data_inicio: string;
+}
+
+// Interface para resposta da API
+export interface InscricoesResponse {
+  success: boolean;
+  data: Inscricao[];
+  total: number;
+}
+
+// Interface para resposta de criação de inscrição
+export interface CriarInscricaoResponse {
+  success: boolean;
+  message: string;
+  data: Inscricao;
 }
 // O que a API retorna após uma inscrição
 export interface Inscricao {
   id: string | number;
-  event_id: string | number;
-  user_id: string | number; 
-  status: 'confirmada' | 'cancelada';
+  evento_id: string | number;
+  usuario_id: string | number; 
+  status: 'ativa' | 'cancelada';
   created_at: string;
   status_presenca?: 'presente' | 'ausente' | null;
   evento?: EventoResumido; // Dados do evento
@@ -26,8 +40,8 @@ export interface Inscricao {
 
 // O que precisamos enviar para criar uma inscrição
 export interface NovaInscricaoPayload {
-  event_id: string | number;
-  // O user_id será extraído do token pelo backend
+  evento_id: string | number;
+  // O usuario_id será extraído do token pelo backend
 }
 
 // --- Funções da API ---
@@ -39,8 +53,8 @@ export interface NovaInscricaoPayload {
  */
 export const getMinhasInscricoes = async (): Promise<Inscricao[]> => {
    try {
-    const { data } = await privateApi.get<Inscricao[]>('/inscricoes');
-    return data;
+    const { data } = await privateApi.get<InscricoesResponse>('/inscricoes');
+    return data.data; // A API retorna {success: true, data: [...], total: 1}
   } catch (error: any) {
     console.error("Erro ao buscar inscrições:", error.response?.data || error.message);
     throw new Error(error.response?.data?.message || 'Falha ao buscar inscrições');
@@ -53,8 +67,8 @@ export const getMinhasInscricoes = async (): Promise<Inscricao[]> => {
  */
 export const criarInscricao = async (payload: NovaInscricaoPayload): Promise<Inscricao> => {
   try {
-    const { data } = await privateApi.post<Inscricao>('/inscricoes', payload);
-    return data;
+    const { data } = await privateApi.post<CriarInscricaoResponse>('/inscricoes', payload);
+    return data.data; // A API retorna {success: true, message: '...', data: {...}}
   } catch (error: any) {
     console.error("Erro ao criar inscrição:", error.response?.data || error.message);
     throw new Error(error.response?.data?.message || 'Falha ao tentar se inscrever');
@@ -73,5 +87,33 @@ export const cancelarInscricao = async (inscricaoId: string | number): Promise<v
   } catch (error: any) {
     console.error("Erro ao cancelar inscrição:", error.response?.data || error.message);
     throw new Error(error.response?.data?.message || 'Falha ao cancelar inscrição');
+  }
+}
+
+/**
+ * Verifica se o usuário está inscrito em um evento específico.
+ * Corresponde a: GET /inscricoes/evento/{evento_id}/check
+ */
+// Interface para resposta de verificação
+export interface VerificarInscricaoResponse {
+  success: boolean;
+  inscrito: boolean;
+  inscricao?: {
+    id: number;
+    status: string;
+    created_at: string;
+  } | null;
+}
+
+export const verificarInscricao = async (eventoId: string | number): Promise<{inscrito: boolean, inscricao?: any}> => {
+  try {
+    const { data } = await privateApi.get<VerificarInscricaoResponse>(`/inscricoes/evento/${eventoId}/check`);
+    return {
+      inscrito: data.inscrito,
+      inscricao: data.inscricao
+    };
+  } catch (error: any) {
+    console.error("Erro ao verificar inscrição:", error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || 'Falha ao verificar inscrição');
   }
 }

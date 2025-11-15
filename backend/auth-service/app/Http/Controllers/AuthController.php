@@ -21,6 +21,13 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
+        Log::info('Iniciando processo de registro de usuário', [
+            'service' => 'auth-service',
+            'action' => 'register_attempt',
+            'email' => $request->email,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|between:2,100',
             'email' => 'required|string|email|max:100|unique:users',
@@ -41,11 +48,14 @@ class AuthController extends Controller
             'password' => Hash::make($request->password)
         ]);
 
-        // Log da criação do usuário
-        Log::info('Usuário criado', [
+        Log::info('Usuário registrado com sucesso', [
+            'service' => 'auth-service',
+            'action' => 'register_success',
             'user_id' => $user->id,
-            'email' => $user->email,
-            'ip' => $request->ip()
+            'user_name' => $user->name,
+            'user_email' => $user->email,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
         ]);
 
         return response()->json([
@@ -55,6 +65,7 @@ class AuthController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'role' => $user->role,
                 'created_at' => $user->created_at
             ]
         ], 201);
@@ -68,6 +79,14 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
+        Log::info('Iniciando processo de login', [
+            'service' => 'auth-service',
+            'action' => 'login_attempt',
+            'email' => $request->email,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
+
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
             'password' => 'required|string|min:6',
@@ -84,9 +103,13 @@ class AuthController extends Controller
         $credentials = $request->only('email', 'password');
 
         if (!$token = Auth::guard('api')->attempt($credentials)) {
-            Log::warning('Tentativa de login falhada', [
+            Log::warning('Tentativa de login com credenciais inválidas', [
+                'service' => 'auth-service',
+                'action' => 'login_failed',
                 'email' => $request->email,
-                'ip' => $request->ip()
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'timestamp' => now()->toDateTimeString()
             ]);
 
             return response()->json([
@@ -97,11 +120,16 @@ class AuthController extends Controller
 
         $user = Auth::guard('api')->user();
 
-        // Log do login bem-sucedido
         Log::info('Login realizado com sucesso', [
+            'service' => 'auth-service',
+            'action' => 'login_success',
             'user_id' => $user->id,
-            'email' => $user->email,
-            'ip' => $request->ip()
+            'user_name' => $user->name,
+            'user_email' => $user->email,
+            'token_expires_in' => config('jwt.ttl') * 60,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'timestamp' => now()->toDateTimeString()
         ]);
 
         return response()->json([
@@ -114,7 +142,8 @@ class AuthController extends Controller
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
-                    'email' => $user->email
+                    'email' => $user->email,
+                    'role' => $user->role
                 ]
             ]
         ], 200);
@@ -135,6 +164,7 @@ class AuthController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'role' => $user->role,
                 'created_at' => $user->created_at,
                 'updated_at' => $user->updated_at
             ]

@@ -1,7 +1,8 @@
 // /src/pages/Register.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 import { register } from '../services/authService';
 import type { RegisterPayload } from '../services/authService';
@@ -14,12 +15,19 @@ export function Register() {
     name: '',
     email: '',
     password: '',
-    password_confirmation: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+
+  // Redireciona se já estiver logado
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -34,34 +42,18 @@ export function Register() {
     setError(null);
     setSuccess(null);
 
-    if (formData.password !== formData.password_confirmation) {
-      setError('As senhas não conferem.');
-      setLoading(false);
-      return;
-    }
-
     try {
-      // --- MOCK TEMPORÁRIO ---
-      await new Promise(r => setTimeout(r, 1000));
-      // (Simulando erro de email já existente)
-      if (formData.email === 'email@usado.com') {
-         throw new Error('O email informado já está em uso.');
+      const response = await register(formData);
+      
+      if (response.success) {
+        setSuccess(response.message + " Redirecionando para o login...");
+        // Redireciona para o login após 2s
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
+      } else {
+        setError('Erro inesperado no registro.');
       }
-      const mockResponse = {
-        message: 'Usuário registrado com sucesso!',
-        user: { id: 4, name: formData.name, email: formData.email }
-      };
-      // --- FIM DO MOCK ---
-
-      // (Chamada real)
-      // const mockResponse = await register(formData);
-
-      setSuccess(mockResponse.message + " Redirecionando para o login...");
-      // Redireciona para o login após 2s
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
-
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -89,10 +81,7 @@ export function Register() {
           <input type="password" id="password" name="password" onChange={handleChange} required />
         </div>
 
-        <div className={styles.inputGroup}>
-          <label htmlFor="password_confirmation">Confirmar Senha:</label>
-          <input type="password" id="password_confirmation" name="password_confirmation" onChange={handleChange} required />
-        </div>
+
 
         {error && <p className={styles.errorMessage}>{error}</p>}
         {success && <p style={{ color: '#4caf50', textAlign: 'center' }}>{success}</p>}

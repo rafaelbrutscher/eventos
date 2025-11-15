@@ -1,34 +1,11 @@
 // /src/pages/MinhasInscricoes.tsx
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { getMinhasInscricoes, cancelarInscricao } from '../services/inscricaoService';
 import type { Inscricao } from '../services/inscricaoService';
 
 import styles from './Home.module.css'; // Reutilizando estilos
 // CSS específico para a lista de inscrições
-import listStyles from './MinhasInscricoes.module.css'; 
-
-// --- MOCK TEMPORÁRIO ---
-const MOCK_INSCRICOES: Inscricao[] = [
-  {
-    id: 'insc123',
-    event_id: 1,
-    user_id: 'user1',
-    status: 'confirmada',
-    created_at: new Date().toISOString(),
-    evento: { id: 1, nome: 'Conferência de React', data: '2025-12-01' },
-    status_presenca: 'presente', // <-- Participante 1 (check-in feito)
-  },
-  {
-    id: 'insc456',
-    event_id: 2,
-    user_id: 'user1',
-    status: 'confirmada',
-    created_at: new Date().toISOString(),
-    evento: { id: 2, nome: 'Workshop de Docker', data: '2025-12-05' },
-    status_presenca: null, // <-- Participante 2 (só inscrito)
-  }
-];
+import listStyles from './MinhasInscricoes.module.css';
 
 export function MinhasInscricoes() {
   const [inscricoes, setInscricoes] = useState<Inscricao[]>([]);
@@ -40,12 +17,9 @@ export function MinhasInscricoes() {
     setLoading(true);
     setError(null);
     try {
-      // (Chamada real)
-      // const data = await getMinhasInscricoes(); 
-
-      // (Mock)
-      await new Promise(r => setTimeout(r, 500));
-      setInscricoes(MOCK_INSCRICOES);
+      // Chamada real para buscar inscrições
+      const data = await getMinhasInscricoes();
+      setInscricoes(data);
 
     } catch (err: any) {
       setError(err.message);
@@ -66,14 +40,11 @@ export function MinhasInscricoes() {
     }
 
     try {
-      // (Chamada real)
-      // await cancelarInscricao(id);
+      // Chamada real para cancelar inscrição
+      await cancelarInscricao(id);
 
-      // (Mock)
-      await new Promise(r => setTimeout(r, 500));
-
-      // Remove a inscrição da lista local para atualizar a UI
-      setInscricoes(prev => prev.filter(item => item.id !== id));
+      // Recarrega a lista após cancelar
+      await carregarInscricoes();
 
     } catch (err: any) {
       alert(`Erro ao cancelar inscrição: ${err.message}`);
@@ -83,7 +54,7 @@ export function MinhasInscricoes() {
   const renderContent = () => {
     if (loading) return <p className={styles.statusMessage}>Carregando...</p>;
     if (error) return <p className={styles.errorMessage}>{error}</p>;
-    if (inscricoes.length === 0) {
+    if (!Array.isArray(inscricoes) || inscricoes.length === 0) {
       return <p className={styles.statusMessage}>Você não possui inscrições ativas.</p>;
     }
 
@@ -92,24 +63,26 @@ export function MinhasInscricoes() {
         {inscricoes.map(insc => (
           <li key={insc.id} className={listStyles.listItem}>
             <div className={listStyles.itemDetails}>
-              <strong>{insc.evento?.nome}</strong>
-              <p>Data: {new Date(insc.evento?.data ?? '').toLocaleDateString()}</p>
+              <strong>{insc.evento?.nome || 'Evento sem nome'}</strong>
+              <p>Data: {insc.evento?.data_inicio ? new Date(insc.evento.data_inicio).toLocaleDateString() : 'Data não disponível'}</p>
+              <p>Status: <span style={{ color: insc.status === 'ativa' ? '#16a34a' : '#e74c3c', fontWeight: 'bold' }}>
+                {insc.status === 'ativa' ? 'Ativa' : 'Cancelada'}
+              </span></p>
             </div>
 
-            {/* --- LÓGICA DE STATUS ATUALIZADA --- */}
-            {insc.status_presenca === 'presente' ? (
-              <span className={listStyles.statusTag}>
-                Presença Confirmada
-              </span>
-            ) : (
+            {/* Botão de cancelar só aparece se a inscrição estiver ativa */}
+            {insc.status === 'ativa' ? (
               <button 
                 onClick={() => handleCancel(insc.id)}
                 className={listStyles.cancelButton}
               >
                 Cancelar Inscrição
               </button>
+            ) : (
+              <span className={listStyles.statusTag}>
+                Inscrição Cancelada
+              </span>
             )}
-            {/* --- FIM DA ATUALIZAÇÃO --- */}
 
           </li>
         ))}

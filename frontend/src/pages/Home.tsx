@@ -51,64 +51,105 @@ export function Home() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // ... (lógica do useEffect permanece a mesma) ...
+    const fetchEvents = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const data = await getEvents();
+        setEvents(data);
+      } catch (err: any) {
+        console.error('Erro ao buscar eventos:', err);
+        setError(err.message);
+        
+        // Fallback para dados mockados se a API falhar
+        const mockEvents: Event[] = [
+          { 
+            id: 1, 
+            nome: 'Evento dos sigma da bahia', 
+            descricao: 'como ser um sigma da bahia',
+            data_inicio: '2025-11-17T10:05:29',
+            data_fim: '2025-11-17T11:22:31',
+            template_certificado: 'aaaaaaaaaaaa',
+            created_at: '2025-11-15T10:05:38',
+            updated_at: '2025-11-15T10:05:38'
+          }
+        ];
+        setEvents(mockEvents);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
   }, []);
 
-  const renderContent = () => {
-    
-    // --- 2. MOCK ATUALIZADO (com ícones) ---
-    const mockEvents = [
-      { 
-        id: 1, 
-        nome: 'Conferência de React', 
-        data: '2025-12-01',
-        description: 'Um mergulho profundo nos novos hooks e funcionalidades do React 19.',
-        icon: <IconCode /> // Passando o componente de ícone
-      },
-      { 
-        id: 2, 
-        nome: 'Workshop de Docker', 
-        data: '2025-12-05',
-        description: 'Aprenda a containerizar suas aplicações do zero.',
-        icon: <IconDocker />
-      },
-      { 
-        id: 3, 
-        nome: 'Palestra de Cibersegurança', 
-        data: '2025-12-10',
-        description: 'Técnicas essenciais de defesa para aplicações web modernas.',
-        icon: <IconShield />
-      },
-    ];
+  // Função auxiliar para obter ícone baseado no nome do evento
+  const getEventIcon = (nome: string) => {
+    const nomeLower = nome.toLowerCase();
+    if (nomeLower.includes('react') || nomeLower.includes('código') || nomeLower.includes('programação')) {
+      return <IconCode />;
+    }
+    if (nomeLower.includes('docker') || nomeLower.includes('container')) {
+      return <IconDocker />;
+    }
+    if (nomeLower.includes('segurança') || nomeLower.includes('cyber') || nomeLower.includes('sigma')) {
+      return <IconShield />;
+    }
+    return <IconCode />; // Ícone padrão
+  };
 
-    // (Quando a API funcionar, comente os mocks e descomente o resto)
-    
-    // if (loading) { ... }
-    // if (error) { ... }
-    // if (events.length === 0) { ... }
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <p>Carregando eventos...</p>
+        </div>
+      );
+    }
+
+    if (error && events.length === 0) {
+      return (
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <p style={{ color: '#e74c3c' }}>
+            Erro ao carregar eventos: {error}
+          </p>
+          <p style={{ color: '#6B7280', fontSize: '0.9rem' }}>
+            Verificando conexão com o servidor...
+          </p>
+        </div>
+      );
+    }
+
+    if (events.length === 0) {
+      return (
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+          <p>Nenhum evento disponível no momento.</p>
+        </div>
+      );
+    }
 
     return (
       <ul className={styles.eventList}>
-        {mockEvents.map((event, index) => (
+        {events.map((event, index) => (
           <li 
             key={event.id} 
             className={styles.eventItem}
-            style={{ '--animation-delay': `${index * 120}ms` }}
+            style={{ animationDelay: `${index * 120}ms` } as React.CSSProperties}
           >
-            <div className={styles.cardIcon}>{event.icon}</div>
+            <div className={styles.cardIcon}>{getEventIcon(event.nome)}</div>
 
             <div className={styles.cardContent}>
               <h3>{event.nome}</h3>
               <p className={styles.date}>
-                Data: {new Date(event.data).toLocaleDateString()}
+                Data: {new Date(event.data_inicio).toLocaleDateString('pt-BR')}
               </p>
               <p className={styles.description}>
-                {event.description}
+                {event.descricao}
               </p>
 
-              {/* 2. TROCAR O <button> POR <Link> */}
               <Link 
-                to={`/eventos/${event.id}`} // Rota dinâmica
+                to={`/eventos/${event.id}`}
                 className={styles.cardButton}
               >
                 Ver Detalhes

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificado de Participação</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 2cm;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Times New Roman', serif;
+            color: #2c3e50;
+            background-color: white;
+        }
+        
+        .certificado {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            border: 8px solid #3498db;
+            border-radius: 20px;
+            padding: 40px;
+            box-sizing: border-box;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+        
+        .certificado::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            bottom: 20px;
+            border: 2px solid #2980b9;
+            border-radius: 15px;
+        }
+        
+        .header {
+            margin-bottom: 30px;
+        }
+        
+        .titulo {
+            font-size: 48px;
+            font-weight: bold;
+            color: #2980b9;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .subtitulo {
+            font-size: 24px;
+            color: #34495e;
+            margin: 10px 0 0 0;
+            font-style: italic;
+        }
+        
+        .conteudo {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            max-width: 800px;
+            margin: 20px 0;
+        }
+        
+        .texto-principal {
+            font-size: 22px;
+            line-height: 1.8;
+            margin: 20px 0;
+            color: #2c3e50;
+        }
+        
+        .nome-participante {
+            font-size: 36px;
+            font-weight: bold;
+            color: #e74c3c;
+            margin: 20px 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-decoration: underline;
+            text-decoration-color: #3498db;
+        }
+        
+        .nome-evento {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2980b9;
+            margin: 15px 0;
+            font-style: italic;
+        }
+        
+        .data-evento {
+            font-size: 18px;
+            color: #7f8c8d;
+            margin: 10px 0;
+        }
+        
+        .descricao-evento {
+            font-size: 16px;
+            color: #5d6d7e;
+            margin: 15px 0;
+            line-height: 1.6;
+            font-style: italic;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 700px;
+        }
+        
+        .assinatura {
+            text-align: center;
+            flex: 1;
+            margin: 0 20px;
+        }
+        
+        .linha-assinatura {
+            border-top: 2px solid #2c3e50;
+            width: 200px;
+            margin: 10px auto 5px auto;
+        }
+        
+        .nome-assinatura {
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        
+        .cargo-assinatura {
+            font-size: 12px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        
+        .data-geracao {
+            position: absolute;
+            bottom: 15px;
+            left: 30px;
+            font-size: 12px;
+            color: #95a5a6;
+        }
+        
+        .codigo-validacao {
+            position: absolute;
+            bottom: 15px;
+            right: 30px;
+            font-size: 12px;
+            color: #95a5a6;
+        }
+        
+        .ornamento {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle, #3498db, #2980b9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .ornamento.top-left {
+            top: 40px;
+            left: 40px;
+        }
+        
+        .ornamento.top-right {
+            top: 40px;
+            right: 40px;
+        }
+        
+        .ornamento.bottom-left {
+            bottom: 40px;
+            left: 40px;
+        }
+        
+        .ornamento.bottom-right {
+            bottom: 40px;
+            right: 40px;
+        }
+        
+        .carga-horaria {
+            font-size: 16px;
+            color: #7f8c8d;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        /* Estilos para impressão */
+        @media print {
+            .certificado {
+                height: 100vh;
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="certificado">
+        <!-- Ornamentos decorativos -->
+        <div class="ornamento top-left">★</div>
+        <div class="ornamento top-right">★</div>
+        <div class="ornamento bottom-left">★</div>
+        <div class="ornamento bottom-right">★</div>
+        
+        <!-- Cabeçalho -->
+        <div class="header">
+            <h1 class="titulo">Certificado</h1>
+            <p class="subtitulo">de Participação</p>
+        </div>
+        
+        <!-- Conteúdo principal -->
+        <div class="conteudo">
+            <p class="texto-principal">
+                Certificamos que
+            </p>
+            
+            <h2 class="nome-participante">{{ participante_nome }}</h2>
+            
+            <p class="texto-principal">
+                participou do evento
+            </p>
+            
+            <h3 class="nome-evento">{{ evento_nome }}</h3>
+            
+            {% if evento_descricao %}
+            <p class="descricao-evento">{{ evento_descricao }}</p>
+            {% endif %}
+            
+            <p class="data-evento">
+                Realizado em {{ data_inicio_formatada }}{% if data_fim_formatada and data_fim_formatada != data_inicio_formatada %} a {{ data_fim_formatada }}{% endif %}
+            </p>
+            
+            {% if carga_horaria %}
+            <p class="carga-horaria">
+                Carga horária: {{ carga_horaria }} horas
+            </p>
+            {% endif %}
+        </div>
+        
+        <!-- Rodapé com assinaturas -->
+        <div class="footer">
+            <div class="assinatura">
+                <div class="linha-assinatura"></div>
+                <p class="nome-assinatura">{{ organizador_nome|default:"Organizador do Evento" }}</p>
+                <p class="cargo-assinatura">{{ organizador_cargo|default:"Coordenação" }}</p>
+            </div>
+        </div>
+        
+        <!-- Informações de validação -->
+        <div class="data-geracao">
+            Emitido em: {{ data_geracao_formatada }}
+        </div>
+        
+        <div class="codigo-validacao">
+            Código: {{ codigo_validacao }}
+        </div>
+    </div>
+</body>
+</html>

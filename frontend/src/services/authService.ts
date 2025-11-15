@@ -1,53 +1,71 @@
 // /src/services/authService.ts
 import { createPublicApi, createPrivateApi } from './api';
 
-// !!! Ajuste a porta se necessário
-const AUTH_SERVICE_URL = 'http://localhost:8000/api';
+// URL do auth-service (porta 8001)
+const AUTH_SERVICE_URL = 'http://127.0.0.1:8001/api';
 
 // API pública para login/registro
 const publicApi = createPublicApi(AUTH_SERVICE_URL);
 // API privada para rotas autenticadas do Auth Service
 const privateApi = createPrivateApi(AUTH_SERVICE_URL);
 
-interface LoginCredentials { /* ... */ }
-interface LoginResponse { /* ... */ }
+// Tipos baseados na API do auth-service
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
 
-// --- NOVOS Tipos de Registro ---
+export interface LoginResponse {
+  success: boolean;
+  message: string;
+  data: {
+    access_token: string;
+    token_type: string;
+    expires_in: number;
+    user: {
+      id: number;
+      name: string;
+      email: string;
+    };
+  };
+}
+
 export interface RegisterPayload {
   name: string;
   email: string;
   password: string;
-  password_confirmation: string;
 }
 
 export interface RegisterResponse {
+  success: boolean;
   message: string;
-  user: {
-    id: number | string;
+  data: {
+    id: number;
     name: string;
     email: string;
+    created_at: string;
   };
-  // (O backend pode ou não retornar um token no registro)
-  access_token?: string; 
 }
 
 export interface UserProfile {
-  id: string | number;
-  name: string;
-  email: string;
-  // Adicione outros campos que podem ser complementados
-  cpf?: string;
-  telefone?: string;
-  instituicao?: string;
+  success: boolean;
+  data: {
+    id: number;
+    name: string;
+    email: string;
+    created_at: string;
+    updated_at: string;
+  };
 }
 
 export const login = async (credentials: LoginCredentials): Promise<LoginResponse> => {
   try {
-    // Use a API pública
     const { data } = await publicApi.post<LoginResponse>('/login', credentials);
     return data;
   } catch (error: any) {
-    // ... (lógica de erro)
+    console.error('Erro no login:', error.response?.data || error.message);
+    const errorMessage = error.response?.data?.message || 'Credenciais inválidas';
+    throw new Error(errorMessage);
   }
 };
 
@@ -57,48 +75,71 @@ export const login = async (credentials: LoginCredentials): Promise<LoginRespons
  */
 export const register = async (payload: RegisterPayload): Promise<RegisterResponse> => {
   try {
-    // Usa a API pública
     const { data } = await publicApi.post<RegisterResponse>('/register', payload);
     return data;
-  } catch (error: any)
-  {
-    console.error("Erro no registro:", error.response?.data || error.message);
-    // O backend (Laravel) geralmente retorna erros de validação
-    const validationErrors = error.response?.data?.errors;
-    if (validationErrors) {
-      // Pega a primeira mensagem de erro
+  } catch (error: any) {
+    console.error('Erro no registro:', error.response?.data || error.message);
+    
+    // Tratar erros de validação do Laravel
+    if (error.response?.data?.errors) {
+      const validationErrors = error.response.data.errors;
       const firstError = Object.values(validationErrors)[0] as string[];
       throw new Error(firstError[0] || 'Falha na validação dos dados.');
     }
-    throw new Error(error.response?.data?.message || 'Falha ao tentar registrar');
+    
+    const errorMessage = error.response?.data?.message || 'Falha ao tentar registrar';
+    throw new Error(errorMessage);
   }
 };
 
 /**
  * Busca os dados do perfil do usuário logado.
- * Corresponde a: GET /user-profile
+ * Corresponde a: GET /usuario-logado
  */
 export const getUserProfile = async (): Promise<UserProfile> => {
   try {
-    // Usa a API privada
-    const { data } = await privateApi.get<UserProfile>('/user-profile');
+    const { data } = await privateApi.get<UserProfile>('/usuario-logado');
     return data;
   } catch (error: any) {
-    console.error("Erro ao buscar perfil:", error.response?.data || error.message);
-    throw new Error(error.response?.data?.message || 'Falha ao buscar dados do perfil');
+    console.error('Erro ao buscar perfil:', error.response?.data || error.message);
+    const errorMessage = error.response?.data?.message || 'Falha ao buscar dados do perfil';
+    throw new Error(errorMessage);
   }
 };
 
 /**
- * Atualiza os dados do perfil do usuário logado.
- * (Assumindo um endpoint PUT /user-profile)
+ * Faz logout do usuário invalidando o token
+ * Corresponde a: POST /logout
  */
-export const updateUserProfile = async (payload: Partial<UserProfile>): Promise<UserProfile> => {
+export const logout = async (): Promise<void> => {
   try {
-    const { data } = await privateApi.put<UserProfile>('/user-profile', payload);
+    await privateApi.post('/logout');
+    // Remover token do localStorage
+    localStorage.removeItem('authToken');
+  } catch (error: any) {
+    console.error('Erro no logout:', error.response?.data || error.message);
+    // Mesmo com erro, remover o token localmente
+    localStorage.removeItem('authToken');
+    throw new Error(error.response?.data?.message || 'Falha ao fazer logout');
+  }
+};
+
+/**
+ * Renova o token JWT
+ * Corresponde a: POST /refresh
+ */
+export const refreshToken = async (): Promise<LoginResponse> => {
+  try {
+    const { data } = await privateApi.post<LoginResponse>('/refresh');
+    // Atualizar token no localStorage
+    if (data.success && data.data.access_token) {
+      localStorage.setItem('authToken', data.data.access_token);
+    }
     return data;
   } catch (error: any) {
-    console.error("Erro ao atualizar perfil:", error.response?.data || error.message);
-    throw new Error(error.response?.data?.message || 'Falha ao atualizar perfil');
+    console.error('Erro ao renovar token:', error.response?.data || error.message);
+    // Se não conseguir renovar, fazer logout
+    localStorage.removeItem('authToken');
+    throw new Error(error.response?.data?.message || 'Falha ao renovar token');
   }
 };

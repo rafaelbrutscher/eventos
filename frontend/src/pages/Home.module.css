@@ -195,4 +195,116 @@
   height: 18px;
 }
 
-/* ... (Mensagens de status .statusMessage, .errorMessage) ... */
+/* === Estilos para Check-in de Atendente === */
+
+.accessDenied {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.eventSelector {
+  margin: 2rem 0;
+}
+
+.eventList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.selectedEvent {
+  background-color: var(--color-primary-dark) !important;
+  transform: scale(1.02);
+}
+
+.checkinSection {
+  margin-top: 2rem;
+}
+
+.searchContainer {
+  margin: 1rem 0;
+}
+
+.searchInput {
+  width: 100%;
+  max-width: 400px;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.stats {
+  background: var(--color-background);
+  padding: 1rem;
+  border-radius: 6px;
+  margin: 1rem 0;
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.stats p {
+  margin: 0;
+  color: var(--color-text-dark);
+}
+
+.inscritosList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.inscritoItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--color-white);
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: var(--shadow-md);
+}
+
+.inscritoInfo strong {
+  color: var(--color-text-dark);
+  font-size: 1.1rem;
+}
+
+.inscritoInfo p {
+  margin: 0.25rem 0 0 0;
+  color: var(--color-text-light);
+  font-size: 0.9rem;
+}
+
+.inscritoActions {
+  display: flex;
+  align-items: center;
+}
+
+.checkinButton {
+  padding: 0.5rem 1rem;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.checkinButton:hover {
+  background: var(--color-primary-dark);
+}
+
+.presencaConfirmada {
+  color: #16a34a;
+  font-weight: 600;
+  font-size: 1rem;
+}

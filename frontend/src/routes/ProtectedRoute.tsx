@@ -1,15 +1,22 @@
 // /src/routes/ProtectedRoute.tsx
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Loading } from '../components/Loading';
 
 export function ProtectedRoute() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
 
-  if (!isAuthenticated) {
-    // Se não estiver autenticado, redireciona para a página de login
-    return <Navigate to="/login" replace />;
+  // Mostra loading enquanto verifica autenticação
+  if (isLoading) {
+    return <Loading message="Verificando autenticação..." />;
   }
 
-  // Se estiver autenticado, renderiza o conteúdo da rota (ex: a Home)
+  if (!isAuthenticated) {
+    // Salva a rota que o usuário tentou acessar para redirecionar após login
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Se estiver autenticado, renderiza o conteúdo da rota
   return <Outlet />;
 }

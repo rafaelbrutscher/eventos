@@ -1,9 +1,9 @@
 // /src/pages/EventDetails.tsx
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { getEventById } from '../services/eventService';
 import type { Event } from '../services/eventService';
-import { criarInscricao } from '../services/inscricaoService';
+import { criarInscricao, verificarInscricao } from '../services/inscricaoService';
 import { enviarEmail } from '../services/emailService';
 import styles from './Home.module.css'; 
 import { useAuth } from '../context/AuthContext';
@@ -19,39 +19,46 @@ export function EventDetails() {
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   const [subscriptionSuccess, setSubscriptionSuccess] = useState(false);
+  const [isAlreadySubscribed, setIsAlreadySubscribed] = useState(false);
+  const [checkingSubscription, setCheckingSubscription] = useState(false);
 
-  // Efeito para buscar os detalhes do evento (MOCK AINDA ATIVO)
+  // Hook para verificar autenticação
+  const { isAuthenticated } = useAuth();
+
+  // Efeito para buscar os detalhes do evento e verificar inscrição
   useEffect(() => {
     if (!id) return;
 
-    const mockUser = { name: 'Usuário Mock', email: 'usuario@mock.com' };
-    const fetchEvent = async () => {
+    const fetchEventAndCheckSubscription = async () => {
       setLoading(true);
       setError(null);
       try {
-        // const data = await getEventById(id); // (Chamada real)
+        // Buscar detalhes do evento
+        const eventData = await getEventById(id);
+        setEvent(eventData);
 
-        // --- MOCK TEMPORÁRIO (DETALHES DO EVENTO) ---
-        setTimeout(() => {
-          setEvent({
-            id: id,
-            nome: `Detalhes da Conferência de React`,
-            data: '2025-12-01',
-            local: 'Centro de Convenções XYZ',
-            description: 'Uma descrição muito mais longa e detalhada sobre o evento de React...'
-          });
-          setLoading(false);
-        }, 500);
-        // --- FIM DO MOCK ---
+        // Verificar se usuário já está inscrito (só se estiver autenticado)
+        if (isAuthenticated) {
+          setCheckingSubscription(true);
+          try {
+            const { inscrito } = await verificarInscricao(id);
+            setIsAlreadySubscribed(inscrito);
+          } catch (checkError) {
+            console.warn('Erro ao verificar inscrição:', checkError);
+          } finally {
+            setCheckingSubscription(false);
+          }
+        }
 
       } catch (err: any) {
         setError(err.message);
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchEvent();
-  }, [id]);
+    fetchEventAndCheckSubscription();
+  }, [id, isAuthenticated]);
 
   // 3. Função para lidar com o clique de inscrição
   const handleSubscription = async () => {
@@ -62,21 +69,23 @@ export function EventDetails() {
     setSubscriptionSuccess(false);
 
     try {
-      // --- MOCK TEMPORÁRIO (INSCRIÇÃO) ---
-      // Simula uma chamada de API de 1 segundo
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // (Esta seria a chamada real)
-      // await criarInscricao({ event_id: id }); 
-
+      // Chamada real para criar inscrição
+      await criarInscricao({ evento_id: id });
       setSubscriptionSuccess(true);
-      // --- FIM DO MOCK ---
-      enviarEmail({
-        to_email: mockUser.email,
-        to_name: mockUser.name,
-        event_name: event?.nome || 'Evento',
-        type: 'inscricao'
-      });
+      setIsAlreadySubscribed(true);
+      // Enviar email de confirmação (opcional)
+      if (isAuthenticated && event) {
+        try {
+          await enviarEmail({
+            to_email: 'usuario@email.com', // TODO: Obter do contexto/API
+            to_name: 'Usuário',
+            event_name: event.nome,
+            type: 'inscricao'
+          });
+        } catch (emailError) {
+          console.warn('Erro ao enviar email:', emailError);
+        }
+      }
 
     } catch (err: any) {
       setSubscriptionError(err.message || 'Falha ao se inscrever.');
@@ -87,14 +96,38 @@ export function EventDetails() {
 
   // Função para renderizar o botão de inscrição
   const renderSubscribeButton = () => {
-    if (subscriptionSuccess) {
+    if (!isAuthenticated) {
+      return (
+        <button 
+          className={styles.cardButton} 
+          style={{ backgroundColor: '#6b7280', cursor: 'default' }}
+          disabled
+        >
+          Faça login para se inscrever
+        </button>
+      );
+    }
+
+    if (checkingSubscription) {
+      return (
+        <button 
+          className={styles.cardButton} 
+          style={{ backgroundColor: '#6b7280', cursor: 'default' }}
+          disabled
+        >
+          Verificando inscrição...
+        </button>
+      );
+    }
+
+    if (isAlreadySubscribed || subscriptionSuccess) {
       return (
         <button 
           className={styles.cardButton} 
           style={{ backgroundColor: '#16a34a', cursor: 'default' }}
           disabled
         >
-          Inscrito com Sucesso!
+          Inscrito
         </button>
       );
     }
@@ -120,9 +153,9 @@ export function EventDetails() {
       <div className={styles.eventItem} style={{ maxWidth: '800px', margin: '0 auto' }}>
         <div className={styles.cardContent}>
           <h3>{event.nome}</h3>
-          <p className={styles.date}>Data: {new Date(event.data).toLocaleDateString()}</p>
-          <p className={styles.date} style={{ marginTop: '-1rem' }}>Local: {event.local}</p>
-          <p className={styles.description}>{event.description}</p>
+          <p className={styles.date}>Início: {new Date(event.data_inicio).toLocaleDateString()} às {new Date(event.data_inicio).toLocaleTimeString()}</p>
+          <p className={styles.date} style={{ marginTop: '-0.5rem' }}>Fim: {new Date(event.data_fim).toLocaleDateString()} às {new Date(event.data_fim).toLocaleTimeString()}</p>
+          <p className={styles.description}>{event.descricao}</p>
 
           {/* 4. Botão e mensagem de erro atualizados */}
           {renderSubscribeButton()}

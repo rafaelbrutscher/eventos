@@ -17,25 +17,32 @@ class LogRequestsMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         // Log da requisição recebida
-        Log::info('Requisição recebida', [
+        Log::info('Requisição recebida - Auth Service', [
+            'service' => 'auth-service',
             'method' => $request->method(),
             'url' => $request->fullUrl(),
+            'route' => $request->route()?->getName() ?? 'undefined',
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent(),
-            'headers' => $request->headers->all(),
+            'headers' => $this->getLogSafeHeaders($request),
             'body' => $this->getLogSafeBody($request),
             'timestamp' => now()->toDateTimeString()
         ]);
 
+        $startTime = microtime(true);
         $response = $next($request);
+        $executionTime = round((microtime(true) - $startTime) * 1000, 2);
 
         // Log da resposta enviada
-        Log::info('Resposta enviada', [
+        Log::info('Resposta enviada - Auth Service', [
+            'service' => 'auth-service',
             'method' => $request->method(),
             'url' => $request->fullUrl(),
+            'route' => $request->route()?->getName() ?? 'undefined',
             'ip' => $request->ip(),
             'status_code' => $response->getStatusCode(),
             'response_size' => strlen($response->getContent()),
+            'execution_time_ms' => $executionTime,
             'timestamp' => now()->toDateTimeString()
         ]);
 
@@ -50,7 +57,7 @@ class LogRequestsMiddleware
         $body = $request->all();
 
         // Remove campos sensíveis do log
-        $sensitiveFields = ['password', 'password_confirmation', 'token'];
+        $sensitiveFields = ['password', 'password_confirmation', 'token', 'secret'];
 
         foreach ($sensitiveFields as $field) {
             if (isset($body[$field])) {
@@ -59,5 +66,20 @@ class LogRequestsMiddleware
         }
 
         return $body;
+    }
+
+    /**
+     * Obtém headers seguros para log (remove tokens de autorização)
+     */
+    private function getLogSafeHeaders(Request $request): array
+    {
+        $headers = $request->headers->all();
+
+        // Oculta tokens de autorização
+        if (isset($headers['authorization'])) {
+            $headers['authorization'] = ['Bearer ***TOKEN***'];
+        }
+
+        return $headers;
     }
 }

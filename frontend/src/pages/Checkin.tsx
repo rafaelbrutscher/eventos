@@ -1,125 +1,210 @@
-// /src/pages/Checkin.tsx
-import { useState } from 'react';
-import { registrarPresenca } from '../services/presencaService';
+// /src/pages/CheckIn.tsx
+import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { getListaPresencaEvento, realizarCheckin, type Inscrito } from '../services/presencaService';
+import { getEvents } from '../services/eventService';
+import { OfflineStatus } from '../components/OfflineStatus';
 
-// Reutilizando estilos
-import styles from './Home.module.css'; 
-import formStyles from './Login.module.css';
-import listStyles from './MinhasInscricoes.module.css'; 
-
-// --- MOCK TEMPORÁRIO ---
-const MOCK_USUARIO_INSCRITO = {
-  user_id: 'user123',
-  name: 'Participante 1 (Mock)',
-  email: 'p1@mock.com',
-  event_id: 'evt1',
-  status_inscricao: 'Confirmada',
-};
-
-export function Checkin() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [foundUser, setFoundUser] = useState<any | null>(null);
+export function CheckIn() {
+  const { user } = useAuth();
+  const [eventos, setEventos] = useState<any[]>([]);
+  const [selectedEvento, setSelectedEvento] = useState<number | null>(null);
+  const [inscritos, setInscritos] = useState<Inscrito[]>([]);
+  const [busca, setBusca] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [checkinSuccess, setCheckinSuccess] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
 
-  // Lida com a busca (simulada)
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    setFoundUser(null);
-    setCheckinSuccess(false);
+  // Carregar eventos ativos
+  useEffect(() => {
+    const fetchEventos = async () => {
+      try {
+        const data = await getEvents();
+        setEventos(data);
+      } catch (error) {
+        console.error('Erro ao carregar eventos:', error);
+        setMessage({ type: 'error', text: 'Erro ao carregar eventos' });
+      }
+    };
 
-    await new Promise(r => setTimeout(r, 500));
+    fetchEventos();
+  }, []);
 
-    if (searchTerm.toLowerCase() === 'p1@mock.com') {
-      setFoundUser(MOCK_USUARIO_INSCRITO);
+  // Carregar lista de presença do evento selecionado
+  useEffect(() => {
+    if (selectedEvento) {
+      const fetchInscritos = async () => {
+        setLoading(true);
+        try {
+          const response = await getListaPresencaEvento(selectedEvento);
+          setInscritos(response.data.inscritos);
+          
+          // Verificar se veio do cache
+          if (!navigator.onLine) {
+            setMessage({ 
+              type: 'warning', 
+              text: 'Dados carregados do cache offline. Pode não estar atualizado.' 
+            });
+          }
+        } catch (error: any) {
+          console.error('Erro ao carregar inscritos:', error);
+          setMessage({ type: 'error', text: error.message || 'Erro ao carregar lista de presença' });
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchInscritos();
     } else {
-      setError('Participante não encontrado ou não inscrito.');
+      setInscritos([]);
     }
-    setLoading(false);
-  };
+  }, [selectedEvento]);
 
-  // Lida com o check-in (simulado)
-  const handleCheckin = async () => {
-    if (!foundUser) return;
-
-    setLoading(true);
-    setError(null);
-    setCheckinSuccess(false);
+  // Realizar check-in (online ou offline)
+  const handleCheckIn = async (inscrito: Inscrito) => {
+    if (!selectedEvento) return;
 
     try {
-      // (Chamada real)
-      // await registrarPresenca({
-      //   user_id: foundUser.user_id,
-      //   event_id: foundUser.event_id
-      // });
+      const resultado = await realizarCheckin({
+        inscricao_id: inscrito.inscricao_id,
+        evento_id: selectedEvento,
+        tipo: navigator.onLine ? 'online' : 'offline'
+      });
 
-      // (Mock)
-      await new Promise(r => setTimeout(r, 1000));
-      setCheckinSuccess(true);
+      if (resultado.success) {
+        // Atualizar lista local
+        setInscritos(prev => prev.map(item => 
+          item.inscricao_id === inscrito.inscricao_id 
+            ? { ...item, ja_tem_presenca: true }
+            : item
+        ));
 
-    } catch (err: any) {
-      setError(err.message || 'Falha ao registrar check-in.');
-    } finally {
-      setLoading(false);
+        const isOffline = !navigator.onLine || resultado.data?.origem === 'offline';
+        setMessage({ 
+          type: isOffline ? 'warning' : 'success', 
+          text: isOffline 
+            ? 'Check-in salvo offline. Será sincronizado quando houver internet.' 
+            : 'Check-in realizado com sucesso!' 
+        });
+      }
+    } catch (error: any) {
+      console.error('Erro no check-in:', error);
+      setMessage({ type: 'error', text: error.message || 'Erro ao realizar check-in' });
     }
+
+    // Limpar mensagem após 5 segundos
+    setTimeout(() => setMessage(null), 5000);
   };
 
+  // Filtrar inscritos pela busca
+  const inscritosFiltrados = inscritos.filter(inscrito =>
+    inscrito.nome.toLowerCase().includes(busca.toLowerCase()) ||
+    inscrito.email.toLowerCase().includes(busca.toLowerCase())
+  );
+
   return (
-    <div className={styles.homeContainer}>
-      <main className={styles.content}>
-        <h2>Check-in do Evento</h2>
-
-        {/* Formulário de Busca */}
-        <form onSubmit={handleSearch} className={formStyles.loginForm} style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <div className={formStyles.inputGroup}>
-            <label htmlFor="search">Buscar Participante (por Email ou CPF)</label>
-            <input
-              type="text"
-              id="search"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Digite o email ou CPF..."
-            />
-          </div>
-          <button type="submit" className={formStyles.loginButton} disabled={loading}>
-            {loading ? 'Buscando...' : 'Buscar'}
-          </button>
-        </form>
-
-        {/* Resultados da Busca */}
-        <div style={{ marginTop: '2rem', maxWidth: '600px', margin: '2rem auto' }}>
-          {error && <p className={styles.errorMessage}>{error}</p>}
-
-          {foundUser && !checkinSuccess && (
-            <div className={listStyles.listItem}>
-              <div className={listStyles.itemDetails}>
-                <strong>{foundUser.name}</strong>
-                <p>Email: {foundUser.email} | Inscrição: {foundUser.status_inscricao}</p>
-              </div>
-              <button 
-                onClick={handleCheckin}
-                className={listStyles.cancelButton}
-                style={{ backgroundColor: '#16a34a' }}
-                disabled={loading}
-              >
-                {loading ? 'Registrando...' : 'Fazer Check-in'}
-              </button>
-            </div>
-          )}
-
-          {checkinSuccess && (
-            <div className={listStyles.listItem} style={{ borderColor: '#16a34a', borderWidth: '2px' }}>
-              <p style={{ color: '#16a34a', fontWeight: 600 }}>
-                Check-in de {foundUser.name} realizado com sucesso!
-              </p>
-            </div>
-          )}
+    <>
+      <OfflineStatus />
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-white rounded-lg shadow-md p-6">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Check-in de Participantes</h1>
+          <p className="text-gray-600">
+            Bem-vindo, <strong>{user?.name}</strong> ({user?.role})
+          </p>
         </div>
 
-      </main>
-    </div>
+        {/* Mensagem de feedback */}
+        {message && (
+          <div className={`mb-4 p-4 rounded-md ${
+            message.type === 'success' 
+              ? 'bg-green-100 border border-green-400 text-green-700' 
+              : 'bg-red-100 border border-red-400 text-red-700'
+          }`}>
+            {message.text}
+          </div>
+        )}
+
+        {/* Seleção de evento */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Selecione o Evento:
+          </label>
+          <select
+            value={selectedEvento || ''}
+            onChange={(e) => setSelectedEvento(e.target.value ? Number(e.target.value) : null)}
+            className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">-- Selecione um evento --</option>
+            {eventos.map(evento => (
+              <option key={evento.id} value={evento.id}>
+                {evento.nome} - {new Date(evento.data_inicio).toLocaleDateString('pt-BR')} ({evento.local})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Busca de participantes */}
+        {selectedEvento && (
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Buscar Participante:
+            </label>
+            <input
+              type="text"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Digite o nome ou email do participante..."
+              className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+        )}
+
+        {/* Lista de participantes */}
+        {selectedEvento && (
+          <div>
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              Participantes Inscritos ({inscritosFiltrados.length})
+            </h2>
+
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+              </div>
+            ) : inscritosFiltrados.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                {busca ? 'Nenhum participante encontrado com esse critério de busca.' : 'Nenhum participante inscrito neste evento.'}
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {inscritosFiltrados.map((inscrito: Inscrito) => (
+                  <div key={inscrito.inscricao_id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
+                    <div>
+                      <h3 className="font-semibold text-gray-800">{inscrito.nome}</h3>
+                      <p className="text-gray-600 text-sm">{inscrito.email}</p>
+                      <p className="text-xs text-gray-500">Status: {inscrito.status_inscricao}</p>
+                      {inscrito.cpf && <p className="text-xs text-gray-400">CPF: {inscrito.cpf}</p>}
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <button
+                        onClick={() => handleCheckIn(inscrito)}
+                        className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        disabled={inscrito.ja_tem_presenca}
+                      >
+                        {inscrito.ja_tem_presenca ? '✅ Presente' : 'Fazer Check-in'}
+                      </button>
+                      {inscrito.ja_tem_presenca && (
+                        <span className="text-xs text-green-600">Check-in realizado</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        </div>
+      </div>
+    </>
   );
 }

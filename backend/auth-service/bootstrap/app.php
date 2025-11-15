@@ -16,8 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'jwt.auth' => \App\Http\Middleware\JWTMiddleware::class,
         ]);
 
-        // Adiciona o middleware de logs globalmente
-        $middleware->append(\App\Http\Middleware\LogRequestsMiddleware::class);
+        // Middleware de logs removido para reduzir ruído nos logs
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

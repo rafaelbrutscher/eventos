@@ -20,58 +20,62 @@ import { MeusCertificados } from './pages/MeusCertificados.tsx';
 import { ValidacaoCertificado } from './pages/ValidacaoCertificado.tsx';
 import { Register } from './pages/Register.tsx';
 import { MeuPerfil } from './pages/MeuPerfil.tsx';
-import { Checkin } from './pages/Checkin.tsx';
+import { CheckIn } from './pages/CheckIn.tsx';
+
+import { ProtectedRoute as RoleProtectedRoute } from './components/ProtectedRoute.tsx';
 
 const router = createBrowserRouter([
   {
     path: '/',
     element: <App />,
     children: [
-      // Rotas Protegidas
-      {
-        element: <ProtectedRoute />,
-        children: [
-
-        ],
-      },
-      // Rotas Públicas
-      {
-        path: '/minhas-inscricoes',
-        element: <MinhasInscricoes />,
-      },
+      // Rotas Públicas (apenas login e register)
       {
         path: '/login',
         element: <Login />,
       },
       {
-        path: '/',
-        element: <Home />,
-      },
-      {
-        // O ':id' é o parâmetro dinâmico
-        path: '/eventos/:id',
-        element: <EventDetails />,
-      },
-      {
-        path: '/meus-certificados',
-        element: <MeusCertificados />,
-      },
-      {
-        path: '/validar-certificado',
-        element: <ValidacaoCertificado />,
-      },
-      {
         path: '/register',
         element: <Register />,
       },
+      // Todas as outras rotas são protegidas
       {
-        path: '/meu-perfil',
-        element: <MeuPerfil />,
-      },
-      {
-            path: '/checkin',
-            element: <Checkin />,
+        element: <ProtectedRoute />,
+        children: [
+          {
+            path: '/',
+            element: <Home />,
           },
+          {
+            path: '/eventos/:id',
+            element: <EventDetails />,
+          },
+          {
+            path: '/minhas-inscricoes',
+            element: <MinhasInscricoes />,
+          },
+          {
+            path: '/meus-certificados',
+            element: <MeusCertificados />,
+          },
+          {
+            path: '/meu-perfil',
+            element: <MeuPerfil />,
+          },
+          {
+            path: '/checkin',
+            element: (
+              <RoleProtectedRoute requireCheckInAccess={true}>
+                <CheckIn />
+              </RoleProtectedRoute>
+            ),
+          },
+          {
+            path: '/validar-certificado',
+            element: <ValidacaoCertificado />,
+          },
+        ],
+      },
     ],
   },
 ]);
