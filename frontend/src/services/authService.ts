@@ -1,41 +1,104 @@
 // /src/services/authService.ts
-import api from './api';
+import { createPublicApi, createPrivateApi } from './api';
 
-// Definimos os tipos (interfaces) para a requisição e resposta
-// Confirmar os campos exatos
-interface LoginCredentials {
+// !!! Ajuste a porta se necessário
+const AUTH_SERVICE_URL = 'http://localhost:8000/api';
+
+// API pública para login/registro
+const publicApi = createPublicApi(AUTH_SERVICE_URL);
+// API privada para rotas autenticadas do Auth Service
+const privateApi = createPrivateApi(AUTH_SERVICE_URL);
+
+interface LoginCredentials { /* ... */ }
+interface LoginResponse { /* ... */ }
+
+// --- NOVOS Tipos de Registro ---
+export interface RegisterPayload {
+  name: string;
   email: string;
   password: string;
+  password_confirmation: string;
 }
 
-interface LoginResponse {
-  access_token: string;
-  // ... (outros dados que a API de login possa retornar, ex: user)
+export interface RegisterResponse {
+  message: string;
+  user: {
+    id: number | string;
+    name: string;
+    email: string;
+  };
+  // (O backend pode ou não retornar um token no registro)
+  access_token?: string; 
 }
 
-/**
- * Tenta autenticar o usuário na API.
- * @param credentials - Email e senha do usuário.
- * @returns Os dados da resposta da API (ex: token de acesso).
- */
+export interface UserProfile {
+  id: string | number;
+  name: string;
+  email: string;
+  // Adicione outros campos que podem ser complementados
+  cpf?: string;
+  telefone?: string;
+  instituicao?: string;
+}
+
 export const login = async (credentials: LoginCredentials): Promise<LoginResponse> => {
   try {
-    // Esta chamada SÓ FUNCIONARÁ após o backend mover a rota /login
-    // para fora do middleware de autenticação.
-    const { data } = await api.post<LoginResponse>('/login', credentials);
-
-    // Se a API retornar o token, podemos salvá-lo (ex: no localStorage)
-    if (data.access_token) {
-      localStorage.setItem('authToken', data.access_token);
-    }
-
+    // Use a API pública
+    const { data } = await publicApi.post<LoginResponse>('/login', credentials);
     return data;
-
   } catch (error: any) {
-    // Tratamento básico de erro
-    console.error("Erro no login:", error.response?.data || error.message);
-    throw new Error(error.response?.data?.message || 'Falha ao tentar logar');
+    // ... (lógica de erro)
   }
 };
 
-// adicionar login e register futuramente
+/**
+ * Registra um novo usuário no sistema.
+ * Corresponde a: POST /register
+ */
+export const register = async (payload: RegisterPayload): Promise<RegisterResponse> => {
+  try {
+    // Usa a API pública
+    const { data } = await publicApi.post<RegisterResponse>('/register', payload);
+    return data;
+  } catch (error: any)
+  {
+    console.error("Erro no registro:", error.response?.data || error.message);
+    // O backend (Laravel) geralmente retorna erros de validação
+    const validationErrors = error.response?.data?.errors;
+    if (validationErrors) {
+      // Pega a primeira mensagem de erro
+      const firstError = Object.values(validationErrors)[0] as string[];
+      throw new Error(firstError[0] || 'Falha na validação dos dados.');
+    }
+    throw new Error(error.response?.data?.message || 'Falha ao tentar registrar');
+  }
+};
+
+/**
+ * Busca os dados do perfil do usuário logado.
+ * Corresponde a: GET /user-profile
+ */
+export const getUserProfile = async (): Promise<UserProfile> => {
+  try {
+    // Usa a API privada
+    const { data } = await privateApi.get<UserProfile>('/user-profile');
+    return data;
+  } catch (error: any) {
+    console.error("Erro ao buscar perfil:", error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || 'Falha ao buscar dados do perfil');
+  }
+};
+
+/**
+ * Atualiza os dados do perfil do usuário logado.
+ * (Assumindo um endpoint PUT /user-profile)
+ */
+export const updateUserProfile = async (payload: Partial<UserProfile>): Promise<UserProfile> => {
+  try {
+    const { data } = await privateApi.put<UserProfile>('/user-profile', payload);
+    return data;
+  } catch (error: any) {
+    console.error("Erro ao atualizar perfil:", error.response?.data || error.message);
+    throw new Error(error.response?.data?.message || 'Falha ao atualizar perfil');
+  }
+};

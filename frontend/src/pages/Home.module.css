@@ -1,0 +1,198 @@
+/* /src/pages/Home.module.css */
+
+/* --- 1. Nova Paleta de Cores e Sombras --- */
+:root {
+  /* Azul mais vibrante */
+  --color-primary: #3B82F6;     
+  --color-primary-dark: #2563EB; 
+  --color-text-dark: #1F2937;    /* Quase preto */
+  --color-text-light: #6B7280;   /* Cinza para descrições */
+  --color-background: #F9FAFB; /* Fundo (Tailwind Gray-50) */
+  --color-white: #ffffff;
+  --color-border: #E5E7EB;     /* Borda (Tailwind Gray-200) */
+  
+  /* Sombras mais suaves e profissionais */
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+/* --- 2. Animação de Entrada (Já tínhamos) --- */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- 3. O Fundo de "Rabisco" (Dot Grid) --- */
+.homeContainer {
+  min-height: 100vh;
+  color: var(--color-text-dark);
+  background-color: var(--color-background);
+  
+  /* Padrão de pontos sutis */
+  background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* --- 4. Cabeçalho "Flutuante" --- */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 2.5rem;
+  background-color: rgba(255, 255, 255, 0.8); /* Branco com transparência */
+  
+  /* Efeito "vidro fosco" */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  
+  border-bottom: 1px solid var(--color-border);
+  
+  /* Fixo no topo */
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-dark);
+}
+
+.logoutButton {
+  /* ... (estilo do botão de logout pode manter) ... */
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 5px;
+  background-color: #e74c3c;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600; /* Usando peso da fonte Inter */
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.logoutButton:hover {
+  background-color: #c0392b;
+  transform: scale(1.05);
+}
+
+/* --- 5. Conteúdo Principal --- */
+.content {
+  max-width: 1200px;
+  margin: 3rem auto; /* Mais espaço */
+  padding: 0 2.5rem;
+}
+
+.content h2 {
+  font-size: 2.25rem; /* Título maior */
+  font-weight: 700;   /* Mais peso */
+  color: var(--color-text-dark);
+  margin-bottom: 2.5rem;
+  text-align: center; /* Centralizado */
+  border: none; /* Remove a linha antiga */
+}
+
+.eventList {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 2rem;
+}
+
+/* --- 6. O Novo Card --- */
+.eventItem {
+  background-color: var(--color-white);
+  border-radius: 12px; /* Mais arredondado */
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md); /* Sombra suave */
+  transition: all 0.3s ease;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+
+  /* Animação */
+  opacity: 0;
+  animation: fadeInUp 0.5s ease-out forwards;
+  animation-delay: var(--animation-delay, 0s);
+}
+
+.eventItem:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-lg); /* Sombra maior no hover */
+}
+
+/* Ícone no topo do card */
+.cardIcon {
+  padding: 1.5rem 1.5rem 0 1.5rem;
+  color: var(--color-primary);
+  /* O SVG terá 'width' e 'height' de 100% */
+}
+
+.cardIcon svg {
+  width: 40px;
+  height: 40px;
+}
+
+.cardContent {
+  padding: 1.5rem;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.cardContent h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: var(--color-text-dark);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.cardContent .date {
+  font-size: 0.9rem;
+  color: var(--color-text-light);
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+.cardContent .description {
+  font-size: 1rem;
+  color: var(--color-text-light);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  flex-grow: 1;
+}
+
+/* Botão com ícone */
+.cardButton {
+  display: flex; /* Para alinhar o ícone */
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem; /* Espaço entre texto e ícone */
+
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 5px;
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.cardButton:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.cardButton svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ... (Mensagens de status .statusMessage, .errorMessage) ... */

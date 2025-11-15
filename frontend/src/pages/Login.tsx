@@ -1,38 +1,41 @@
 // /src/pages/Login.tsx
-// Correção:
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { login } from '../services/authService';
+import { login as loginService } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
+import styles from './Login.module.css'; 
+import { Link } from 'react-router-dom'; 
 
 export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  // Hook para navegar o usuário para a Home após o login
-  const navigate = useNavigate();
+  const { login } = useAuth(); 
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault(); // Impede o recarregamento da página
-    setError(null); // Limpa erros anteriores
+    e.preventDefault(); 
+    setError(null); 
 
     try {
-      await login({ email, password });
-      // Se o login for bem-sucedido, navega para a Home
-      navigate('/'); 
-
+      const response = await loginService({ email, password });
+      if (response.access_token) {
+        login(response.access_token); 
+      } else {
+        setError('Token de acesso não recebido.');
+      }
     } catch (err: any) {
-      // Se o authService lançar um erro (ex: 401 do backend)
       setError(err.message || 'Credenciais inválidas.');
     }
   };
 
+  // 2. Aplique as classes do CSS Module
   return (
-    <div>
-      <h1>Página de Login</h1>
-      <form onSubmit={handleSubmit}>
-        <div>
+    <div className={styles.loginContainer}>
+      <form onSubmit={handleSubmit} className={styles.loginForm}>
+        <h1>Login</h1>
+
+        <div className={styles.inputGroup}>
           <label htmlFor="email">Email:</label>
           <input
             type="email"
@@ -42,7 +45,8 @@ export function Login() {
             required
           />
         </div>
-        <div>
+
+        <div className={styles.inputGroup}>
           <label htmlFor="password">Senha:</label>
           <input
             type="password"
@@ -53,10 +57,15 @@ export function Login() {
           />
         </div>
 
-        {/* Exibe a mensagem de erro do backend */}
-        {error && <p style={{ color: 'red' }}>{error}</p>}
+        {error && <p className={styles.errorMessage}>{error}</p>}
 
-        <button type="submit">Entrar</button>
+        <button type="submit" className={styles.loginButton}>
+          Entrar
+        </button>
+        
+        <Link to="/register" style={{ textAlign: 'center', color: '#fff', marginTop: '1rem' }}>
+          Não tem uma conta? Crie uma agora
+        </Link>
       </form>
     </div>
   );
