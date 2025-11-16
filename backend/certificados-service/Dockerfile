@@ -1,6 +1,16 @@
 FROM python:3.11-alpine
 
-RUN apk add --no-cache postgresql-dev gcc python3-dev musl-dev libffi-dev cairo-dev pango-dev gdk-pixbuf-dev ttf-dejavu jpeg-dev zlib-dev
+# Instalar dependências do sistema necessárias
+RUN apk add --no-cache \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    cairo-dev \
+    pango-dev \
+    gdk-pixbuf-dev \
+    ttf-dejavu \
+    jpeg-dev \
+    zlib-dev
 
 WORKDIR /app
 COPY requirements.txt .
