@@ -1,23 +1,18 @@
-FROM python:3.11-alpine
-
-# Instalar dependências do sistema necessárias
-RUN apk add --no-cache \
-    gcc \
-    musl-dev \
-    libffi-dev \
-    cairo-dev \
-    pango-dev \
-    gdk-pixbuf-dev \
-    ttf-dejavu \
-    jpeg-dev \
-    zlib-dev
+FROM python:3.11-slim
 
 WORKDIR /app
+
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    default-mysql-client \
+    pkg-config \
+    && pip install --no-cache-dir -r requirements.txt \
+    && apt-get remove -y build-essential pkg-config \
+    && apt-get autoremove -y
 
 COPY . .
-RUN mkdir -p /app/media /app/static && python manage.py collectstatic --noinput
 
-EXPOSE 8000
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "certificados_service.wsgi:application"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "certificados_service.wsgi:application"]
