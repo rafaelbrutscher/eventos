@@ -2,7 +2,7 @@
 import { createPrivateApi } from './api';
 
 // Presença-service roda na porta 8004
-const PRESENCA_SERVICE_URL = 'http://127.0.0.1:8004/api';
+const PRESENCA_SERVICE_URL = 'http://177.44.248.89:8004/api';
 
 // API privada para Presenças
 const privateApi = createPrivateApi(PRESENCA_SERVICE_URL);

@@ -2,7 +2,7 @@
 import { createPrivateApi, createPublicApi } from './api';
 
 // Seguindo seu diagrama (porta 8004)
-const CERTIFICADOS_SERVICE_URL = 'http://localhost:8004/api';
+const CERTIFICADOS_SERVICE_URL = 'http://177.44.248.89:8005/api';
 
 // API privada para Certificados
 const privateApi = createPrivateApi(CERTIFICADOS_SERVICE_URL);

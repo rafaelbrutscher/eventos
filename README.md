@@ -71,13 +71,13 @@ docker-compose exec certificados-service python manage.py migrate
 ```
 
 ### 4. Acessar Sistema
-- **Gateway Principal**: http://localhost
-- **Frontend**: http://localhost:3000
-- **Auth Service**: http://localhost:8001
-- **Eventos Service**: http://localhost:8002
-- **Inscrições Service**: http://localhost:8003
-- **Presença Service**: http://localhost:8004
-- **Certificados Service**: http://localhost:8005
+- **Gateway Principal**: http://177.44.248.89
+- **Frontend**: http://177.44.248.89:3000
+- **Auth Service**: http://177.44.248.89:8001
+- **Eventos Service**: http://177.44.248.89:8002
+- **Inscrições Service**: http://177.44.248.89:8003
+- **Presença Service**: http://177.44.248.89:8004
+- **Certificados Service**: http://177.44.248.89:8005
 
 ## 💻 Instalação Local (Desenvolvimento)
 
@@ -129,7 +129,7 @@ cd backend/inscricoes-service && php artisan serve --port=8003 &
 cd backend/presenca-service && php artisan serve --port=8004 &
 
 # Django Service
-cd backend/certificados-service && python manage.py runserver 127.0.0.1:8005 &
+cd backend/certificados-service && python manage.py runserver 177.44.248.89:8005 &
 
 # Celery Worker
 cd backend/certificados-service && celery -A certificados_service worker --loglevel=info &
@@ -239,11 +239,11 @@ docker-compose exec postgres pg_dumpall -U certificados > backup_postgres.sql
 
 ### Health Checks
 Cada serviço possui endpoints de saúde:
-- Auth: http://localhost:8001/up
-- Eventos: http://localhost:8002/up
-- Inscrições: http://localhost:8003/up
-- Presença: http://localhost:8004/up
-- Certificados: http://localhost:8005/health/
+- Auth: http://177.44.248.89:8001/up
+- Eventos: http://177.44.248.89:8002/up
+- Inscrições: http://177.44.248.89:8003/up
+- Presença: http://177.44.248.89:8004/up
+- Certificados: http://177.44.248.89:8005/health/
 
 ### Logs Docker
 ```bash
@@ -352,10 +352,10 @@ docker-compose exec frontend npm test
 ## 📚 Documentação Adicional
 
 ### Swagger/OpenAPI
-- Auth Service: http://localhost:8001/api/documentation
-- Eventos Service: http://localhost:8002/api/documentation
-- Inscrições Service: http://localhost:8003/api/documentation
-- Presença Service: http://localhost:8004/api/documentation
+- Auth Service: http://177.44.248.89:8001/api/documentation
+- Eventos Service: http://177.44.248.89:8002/api/documentation
+- Inscrições Service: http://177.44.248.89:8003/api/documentation
+- Presença Service: http://177.44.248.89:8004/api/documentation
 
 ### Arquivos de Configuração
 - `docker-compose.yml`: Orquestração dos containers
@@ -377,4 +377,4 @@ Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE.md](L
 
 ---
 
-🚀 **Para iniciar rapidamente**: `docker-compose up -d` e acesse http://localhost
+🚀 **Para iniciar rapidamente**: `docker-compose up -d` e acesse http://177.44.248.89

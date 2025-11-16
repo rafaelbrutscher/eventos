@@ -2,7 +2,7 @@
 import { createPublicApi } from './api';
 
 // Eventos-service roda na porta 8002 e as rotas são públicas
-const EVENTOS_SERVICE_URL = 'http://127.0.0.1:8002/api';
+const EVENTOS_SERVICE_URL = 'http://177.44.248.89:8002/api';
 
 // API pública para Eventos (rotas não requerem autenticação)
 const publicApi = createPublicApi(EVENTOS_SERVICE_URL);

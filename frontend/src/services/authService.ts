@@ -2,7 +2,7 @@
 import { createPublicApi, createPrivateApi } from './api';
 
 // URL do auth-service (porta 8001)
-const AUTH_SERVICE_URL = 'http://127.0.0.1:8001/api';
+const AUTH_SERVICE_URL = 'http://177.44.248.89:8001/api';
 
 // API pública para login/registro
 const publicApi = createPublicApi(AUTH_SERVICE_URL);

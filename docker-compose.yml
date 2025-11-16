@@ -47,7 +47,7 @@ services:
       APP_NAME: "Auth Service"
       APP_ENV: production
       APP_DEBUG: false
-      APP_URL: http://localhost:8001
+      APP_URL: http://177.44.248.89:8001
       DB_CONNECTION: mysql
       DB_HOST: mysql
       DB_PORT: 3306
@@ -80,7 +80,7 @@ services:
       APP_NAME: "Eventos Service"
       APP_ENV: production
       APP_DEBUG: false
-      APP_URL: http://localhost:8002
+      APP_URL: http://177.44.248.89:8002
       DB_CONNECTION: mysql
       DB_HOST: mysql
       DB_PORT: 3306
@@ -113,7 +113,7 @@ services:
       APP_NAME: "Inscrições Service"
       APP_ENV: production
       APP_DEBUG: false
-      APP_URL: http://localhost:8003
+      APP_URL: http://177.44.248.89:8003
       DB_CONNECTION: mysql
       DB_HOST: mysql
       DB_PORT: 3306
@@ -146,7 +146,7 @@ services:
       APP_NAME: "Presença Service"
       APP_ENV: production
       APP_DEBUG: false
-      APP_URL: http://localhost:8004
+      APP_URL: http://177.44.248.89:8004
       DB_CONNECTION: mysql
       DB_HOST: mysql
       DB_PORT: 3306
@@ -185,7 +185,7 @@ services:
       DB_PASSWORD: eventos123
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: "eventos-certificados-secret-key-change-in-production"
-      ALLOWED_HOSTS: "localhost,127.0.0.1,certificados-service,gateway"
+      ALLOWED_HOSTS: "localhost,127.0.0.1,177.44.248.89,certificados-service,gateway"
     ports:
       - "8005:8000"
     volumes:

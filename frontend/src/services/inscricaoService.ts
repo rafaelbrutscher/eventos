@@ -2,7 +2,7 @@
 import { createPrivateApi } from './api';
 
 // Inscricoes-service roda na porta 8003
-const INSCRICOES_SERVICE_URL = 'http://127.0.0.1:8003/api';
+const INSCRICOES_SERVICE_URL = 'http://177.44.248.89:8003/api';
 
 // API privada para Inscrições (requer autenticação)
 const privateApi = createPrivateApi(INSCRICOES_SERVICE_URL);

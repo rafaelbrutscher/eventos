@@ -14,7 +14,7 @@ SECRET_KEY = 'django-insecure-certificados-service-key-change-in-production'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '177.44.248.89', '0.0.0.0']
 
 # Application definition
 DJANGO_APPS = [
@@ -135,10 +135,13 @@ CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://177.44.248.89:3000",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://177.44.248.89:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5174",
+    "http://177.44.248.89:5174",
 ]
 
 # Celery Configuration
@@ -160,10 +163,10 @@ DEFAULT_FROM_EMAIL = 'Sistema de Eventos <seu_email@gmail.com>'
 
 # URLs dos outros microserviços
 MICROSERVICES_URLS = {
-    'auth': 'http://localhost:8001',
-    'eventos': 'http://localhost:8002',
-    'inscricoes': 'http://localhost:8003',
-    'presenca': 'http://localhost:8004',
+    'auth': 'http://177.44.248.89:8001',
+    'eventos': 'http://177.44.248.89:8002',
+    'inscricoes': 'http://177.44.248.89:8003',
+    'presenca': 'http://177.44.248.89:8004',
 }
 
 # Logging

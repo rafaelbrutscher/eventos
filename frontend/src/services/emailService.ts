@@ -2,7 +2,7 @@
 import { createPublicApi } from './api'; // E-mail pode ser um serviço público
 
 // (Vamos assumir a porta 8005)
-const EMAIL_SERVICE_URL = 'http://localhost:8005/api';
+const EMAIL_SERVICE_URL = 'http://177.44.248.89:8005/api';
 
 // O envio de e-mail pode não precisar de token de usuário,
 // mas sim de uma chave de API interna (tratada pelo backend).
