@@ -20,7 +20,7 @@ import { MeusCertificados } from './pages/MeusCertificados.tsx';
 import { ValidacaoCertificado } from './pages/ValidacaoCertificado.tsx';
 import { Register } from './pages/Register.tsx';
 import { MeuPerfil } from './pages/MeuPerfil.tsx';
-import { CheckIn } from './pages/CheckIn.tsx';
+import { CheckIn } from './pages/Checkin.tsx';
 
 import { ProtectedRoute as RoleProtectedRoute } from './components/ProtectedRoute.tsx';
 
