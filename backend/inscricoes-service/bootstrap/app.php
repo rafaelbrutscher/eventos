@@ -17,6 +17,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'jwt.auth' => \App\Http\Middleware\JWTMiddleware::class,
         ]);
 
+        // Configuração de CORS
+        $middleware->api([
+            \App\Http\Middleware\CorsMiddleware::class,
+        ]);
+
+        $middleware->alias([
+            'cors' => \App\Http\Middleware\CorsMiddleware::class,
+        ]);
+
         // Middleware de logs removido para reduzir ruído nos logs
     })
     ->withExceptions(function (Exceptions $exceptions): void {
