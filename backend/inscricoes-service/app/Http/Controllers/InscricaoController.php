@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Inscricao;
 use App\Services\AuthService;
 use App\Services\EventosService;
+use App\Mail\InscricaoConfirmada;
+use App\Mail\InscricaoCancelada;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Exception;
 
@@ -160,6 +163,34 @@ class InscricaoController extends Controller
                 'status' => 'ativa'
             ]);
 
+            // Enviar email de confirmação
+            try {
+                $usuarioDetails = $this->authService->getUserDetails($usuarioId);
+
+                if ($usuarioDetails && isset($usuarioDetails['email'])) {
+                    Mail::to($usuarioDetails['email'])->send(new InscricaoConfirmada(
+                        $inscricao->toArray(),
+                        $eventValidation['data'],
+                        $usuarioDetails
+                    ));
+
+                    Log::info('Email de confirmação enviado', [
+                        'service' => 'inscricoes-service',
+                        'action' => 'email_confirmacao_enviado',
+                        'inscricao_id' => $inscricao->id,
+                        'email' => $usuarioDetails['email']
+                    ]);
+                }
+            } catch (Exception $e) {
+                Log::warning('Falha ao enviar email de confirmação', [
+                    'service' => 'inscricoes-service',
+                    'action' => 'email_confirmacao_falha',
+                    'inscricao_id' => $inscricao->id,
+                    'error' => $e->getMessage()
+                ]);
+                // Não falha a inscrição por causa do email
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Inscrição realizada com sucesso',
@@ -291,8 +322,52 @@ class InscricaoController extends Controller
                 ], 400);
             }
 
+            // Buscar detalhes antes do cancelamento
+            $usuarioDetails = null;
+            $eventoDetails = null;
+            $statusAnterior = $inscricao->status;
+
+            try {
+                $usuarioDetails = $this->authService->getUserDetails($inscricao->usuario_id);
+                $eventoDetails = $this->eventosService->getEventDetails($inscricao->evento_id);
+            } catch (Exception $e) {
+                Log::warning('Erro ao buscar detalhes para email de cancelamento', [
+                    'service' => 'inscricoes-service',
+                    'action' => 'email_cancelamento_detalhes_error',
+                    'error' => $e->getMessage()
+                ]);
+            }
+
             // Cancela a inscrição
             $inscricao->cancelar();
+
+            // Enviar email de cancelamento
+            if ($usuarioDetails && $eventoDetails && isset($usuarioDetails['email'])) {
+                try {
+                    $inscricaoData = $inscricao->toArray();
+                    $inscricaoData['status_anterior'] = $statusAnterior;
+
+                    Mail::to($usuarioDetails['email'])->send(new InscricaoCancelada(
+                        $inscricaoData,
+                        $eventoDetails,
+                        $usuarioDetails
+                    ));
+
+                    Log::info('Email de cancelamento enviado', [
+                        'service' => 'inscricoes-service',
+                        'action' => 'email_cancelamento_enviado',
+                        'inscricao_id' => $inscricao->id,
+                        'email' => $usuarioDetails['email']
+                    ]);
+                } catch (Exception $e) {
+                    Log::warning('Falha ao enviar email de cancelamento', [
+                        'service' => 'inscricoes-service',
+                        'action' => 'email_cancelamento_falha',
+                        'inscricao_id' => $inscricao->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
 
             return response()->json([
                 'success' => true,

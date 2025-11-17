@@ -7,8 +7,11 @@ use App\Models\Presenca;
 use App\Models\PresencaLog;
 use App\Services\EventosService;
 use App\Services\InscricoesService;
+use App\Services\AuthService;
+use App\Mail\ParticipacaoConfirmada;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Carbon\Carbon;
 use Exception;
 
@@ -16,11 +19,13 @@ class PresencaController extends Controller
 {
     protected EventosService $eventosService;
     protected InscricoesService $inscricoesService;
+    protected AuthService $authService;
 
-    public function __construct(EventosService $eventosService, InscricoesService $inscricoesService)
+    public function __construct(EventosService $eventosService, InscricoesService $inscricoesService, AuthService $authService)
     {
         $this->eventosService = $eventosService;
         $this->inscricoesService = $inscricoesService;
+        $this->authService = $authService;
     }
 
     /**
@@ -184,6 +189,40 @@ class PresencaController extends Controller
 
             // Log de sucesso
             PresencaLog::logSucesso($presenca->id, $inscricaoId, $eventoId, $origem, $request->all(), $operadorId, $request->ip());
+
+            // Enviar email de participação confirmada
+            try {
+                $token = $request->bearerToken();
+
+                // Buscar dados da inscrição para pegar o usuário
+                $inscricaoResponse = $this->inscricoesService->validarInscricao($inscricaoId, $token);
+                $eventoResponse = $this->eventosService->getEventDetails($eventoId);
+
+                if ($inscricaoResponse['success'] && $eventoResponse && isset($inscricaoResponse['data']['usuario']['email'])) {
+                    $usuarioDetails = $inscricaoResponse['data']['usuario'];
+
+                    Mail::to($usuarioDetails['email'])->send(new ParticipacaoConfirmada(
+                        $presenca->toArray(),
+                        $eventoResponse,
+                        $usuarioDetails
+                    ));
+
+                    Log::info('Email de participação enviado', [
+                        'service' => 'presenca-service',
+                        'action' => 'email_participacao_enviado',
+                        'presenca_id' => $presenca->id,
+                        'email' => $usuarioDetails['email']
+                    ]);
+                }
+            } catch (Exception $e) {
+                Log::warning('Falha ao enviar email de participação', [
+                    'service' => 'presenca-service',
+                    'action' => 'email_participacao_falha',
+                    'presenca_id' => $presenca->id,
+                    'error' => $e->getMessage()
+                ]);
+                // Não falha o check-in por causa do email
+            }
 
             return response()->json([
                 'success' => true,

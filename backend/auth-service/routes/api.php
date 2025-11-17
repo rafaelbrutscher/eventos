@@ -9,6 +9,7 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware(['jwt.auth'])->group(function () {
     Route::get('/usuario-logado', [AuthController::class, 'me']);
+    Route::put('/perfil', [AuthController::class, 'updateProfile']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/refresh', [AuthController::class, 'refresh']);
 });

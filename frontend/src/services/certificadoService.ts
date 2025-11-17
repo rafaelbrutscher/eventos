@@ -27,10 +27,11 @@ export interface Certificado {
 }
 
 export interface ValidacaoInfo {
-  nome_participante: string;
-  nome_evento: string;
-  data_emissao: string;
-  status: 'valido' | 'invalido';
+  valido: boolean;
+  codigo: string;
+  participante_nome?: string;
+  evento_nome?: string;
+  mensagem: string;
 }
 
 // --- Funções da API ---
@@ -67,15 +68,29 @@ export const emitirCertificado = async (eventId: string | number): Promise<Certi
 
 /**
  * Verifica a autenticidade de um certificado
- * Corresponde a: GET /certificados/{id} (ou código)
- * Vamos usar /certificados/validar/{codigo_validacao}
+ * Corresponde a: GET /certificados/validar/{codigo_validacao}
+ * Retorna informações detalhadas sobre a validade do certificado
  */
 export const validarCertificado = async (codigo: string): Promise<ValidacaoInfo> => {
   try {
     const { data } = await publicApi.get<ValidacaoInfo>(`/certificados/validar/${codigo}`);
     return data;
   } catch (error: any) {
+    // Se for 404, o Django retorna dados na resposta mesmo com erro
+    if (error.response?.status === 404 && error.response?.data) {
+      return error.response.data;
+    }
+    
+    // Tratar diferentes tipos de erro
+    if (error.response?.status === 500) {
+      throw new Error('Erro interno do servidor. Tente novamente mais tarde.');
+    }
+    
+    if (error.code === 'NETWORK_ERROR' || !error.response) {
+      throw new Error('Erro de conexão. Verifique sua internet e tente novamente.');
+    }
+    
     console.error("Erro ao validar certificado:", error.response?.data || error.message);
-    throw new Error(error.response?.data?.message || 'Código de validação inválido');
+    throw new Error(error.response?.data?.message || error.response?.data?.erro || 'Erro ao validar certificado');
   }
 };

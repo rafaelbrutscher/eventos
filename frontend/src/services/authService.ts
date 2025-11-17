@@ -143,3 +143,45 @@ export const refreshToken = async (): Promise<LoginResponse> => {
     throw new Error(error.response?.data?.message || 'Falha ao renovar token');
   }
 };
+
+export interface UpdateProfilePayload {
+  name: string;
+  email: string;
+  password?: string;
+  current_password?: string;
+}
+
+export interface UpdateProfileResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    updated_at: string;
+  };
+}
+
+/**
+ * Atualiza os dados do perfil do usuário
+ * Corresponde a: PUT /perfil
+ */
+export const updateProfile = async (payload: UpdateProfilePayload): Promise<UpdateProfileResponse> => {
+  try {
+    const { data } = await privateApi.put<UpdateProfileResponse>('/perfil', payload);
+    return data;
+  } catch (error: any) {
+    console.error('Erro ao atualizar perfil:', error.response?.data || error.message);
+    
+    // Tratar erros de validação do Laravel
+    if (error.response?.data?.errors) {
+      const validationErrors = error.response.data.errors;
+      const firstError = Object.values(validationErrors)[0] as string[];
+      throw new Error(firstError[0] || 'Falha na validação dos dados.');
+    }
+    
+    const errorMessage = error.response?.data?.message || 'Falha ao atualizar perfil';
+    throw new Error(errorMessage);
+  }
+};

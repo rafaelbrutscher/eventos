@@ -1,10 +1,6 @@
-// /src/pages/MeuPerfil.tsx
 import React, { useState, useEffect } from 'react';
 import { updateProfile, getUserProfile, UpdateProfilePayload } from '../services/authService';
-
-// Reutilizando estilos
-import styles from './Home.module.css'; 
-import formStyles from './Login.module.css';
+import './Profile.css';
 
 interface User {
   id: number;
@@ -15,7 +11,7 @@ interface User {
   updated_at: string;
 }
 
-export function MeuPerfil() {
+const Profile: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -131,36 +127,25 @@ export function MeuPerfil() {
 
   if (loading && !user) {
     return (
-      <div className={styles.homeContainer}>
-        <main className={styles.content}>
-          <p className={styles.statusMessage}>Carregando perfil...</p>
-        </main>
+      <div className="profile-container">
+        <div className="loading">Carregando perfil...</div>
       </div>
     );
   }
 
   return (
-    <div className={styles.homeContainer}>
-      <main className={styles.content}>
+    <div className="profile-container">
+      <div className="profile-card">
         <h2>Meu Perfil</h2>
         
         {message && (
-          <div style={{
-            padding: '0.75rem 1rem',
-            borderRadius: '4px',
-            margin: '1rem 0',
-            fontWeight: 'bold',
-            backgroundColor: message.type === 'success' ? '#d4edda' : '#f8d7da',
-            color: message.type === 'success' ? '#155724' : '#721c24',
-            border: `1px solid ${message.type === 'success' ? '#c3e6cb' : '#f5c6cb'}`,
-            textAlign: 'center'
-          }}>
+          <div className={`message ${message.type}`}>
             {message.text}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className={formStyles.loginForm} style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <div className={formStyles.inputGroup}>
+        <form onSubmit={handleSubmit} className="profile-form">
+          <div className="form-group">
             <label htmlFor="name">Nome:</label>
             <input
               type="text"
@@ -173,7 +158,7 @@ export function MeuPerfil() {
             />
           </div>
 
-          <div className={formStyles.inputGroup}>
+          <div className="form-group">
             <label htmlFor="email">Email:</label>
             <input
               type="email"
@@ -186,20 +171,11 @@ export function MeuPerfil() {
             />
           </div>
 
-          <div className={formStyles.inputGroup}>
+          <div className="form-group">
             <button
               type="button"
               onClick={() => setShowPasswordFields(!showPasswordFields)}
-              style={{
-                background: '#6c757d',
-                color: 'white',
-                border: 'none',
-                padding: '0.75rem 1rem',
-                borderRadius: '4px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                fontSize: '0.9rem',
-                opacity: loading ? 0.6 : 1
-              }}
+              className="toggle-password-btn"
               disabled={loading}
             >
               {showPasswordFields ? 'Cancelar alteração de senha' : 'Alterar senha'}
@@ -208,7 +184,7 @@ export function MeuPerfil() {
 
           {showPasswordFields && (
             <>
-              <div className={formStyles.inputGroup}>
+              <div className="form-group">
                 <label htmlFor="current_password">Senha atual:</label>
                 <input
                   type="password"
@@ -220,7 +196,7 @@ export function MeuPerfil() {
                 />
               </div>
 
-              <div className={formStyles.inputGroup}>
+              <div className="form-group">
                 <label htmlFor="password">Nova senha:</label>
                 <input
                   type="password"
@@ -233,7 +209,7 @@ export function MeuPerfil() {
                 />
               </div>
 
-              <div className={formStyles.inputGroup}>
+              <div className="form-group">
                 <label htmlFor="confirmPassword">Confirmar nova senha:</label>
                 <input
                   type="password"
@@ -248,18 +224,13 @@ export function MeuPerfil() {
             </>
           )}
 
-          <button type="submit" className={formStyles.loginButton} disabled={loading}>
+          <button type="submit" className="submit-btn" disabled={loading}>
             {loading ? 'Atualizando...' : 'Atualizar Perfil'}
           </button>
         </form>
 
         {user && (
-          <div style={{ 
-            marginTop: '2rem', 
-            paddingTop: '2rem', 
-            borderTop: '1px solid #eee',
-            textAlign: 'center'
-          }}>
+          <div className="profile-info">
             <h3>Informações da Conta</h3>
             <p><strong>ID:</strong> {user.id}</p>
             <p><strong>Função:</strong> {user.role}</p>
@@ -267,7 +238,9 @@ export function MeuPerfil() {
             <p><strong>Última atualização:</strong> {new Date(user.updated_at).toLocaleString('pt-BR')}</p>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
-}
+};
+
+export default Profile;

@@ -212,4 +212,81 @@ class AuthController extends Controller
             ]
         ], 200);
     }
+
+    /**
+     * Atualizar perfil do usuário
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateProfile(Request $request)
+    {
+        $user = Auth::guard('api')->user();
+
+        Log::info('Iniciando atualização de perfil', [
+            'service' => 'auth-service',
+            'action' => 'update_profile_attempt',
+            'user_id' => $user->id,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|between:2,100',
+            'email' => 'required|string|email|max:100|unique:users,email,' . $user->id,
+            'password' => 'nullable|string|min:6',
+            'current_password' => 'required_with:password|string'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dados de validação falharam',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Verificar senha atual se uma nova senha foi fornecida
+        if ($request->filled('password')) {
+            if (!Hash::check($request->current_password, $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Senha atual incorreta'
+                ], 422);
+            }
+        }
+
+        // Atualizar dados do usuário
+        $user->name = $request->name;
+        $user->email = $request->email;
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
+        }
+
+        $user->save();
+
+        Log::info('Perfil atualizado com sucesso', [
+            'service' => 'auth-service',
+            'action' => 'update_profile_success',
+            'user_id' => $user->id,
+            'user_name' => $user->name,
+            'user_email' => $user->email,
+            'password_changed' => $request->filled('password'),
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Perfil atualizado com sucesso',
+            'data' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'updated_at' => $user->updated_at
+            ]
+        ], 200);
+    }
 }

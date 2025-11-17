@@ -72,7 +72,11 @@ const router = createBrowserRouter([
           },
           {
             path: '/validar-certificado',
-            element: <ValidacaoCertificado />,
+            element: (
+              <RoleProtectedRoute requiredRoles={['admin', 'atendente']}>
+                <ValidacaoCertificado />
+              </RoleProtectedRoute>
+            ),
           },
         ],
       },

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seu Certificado Está Pronto!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: #FF9800;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+        }
+        .certificate-info {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 14px;
+            color: #666;
+        }
+        .certificate-icon {
+            font-size: 48px;
+            margin: 10px 0;
+        }
+        .validation-code {
+            background: #e3f2fd;
+            border: 2px dashed #2196F3;
+            padding: 15px;
+            text-align: center;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .download-button {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .download-button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="certificate-icon">🏆</div>
+        <h1>Certificado Disponível!</h1>
+    </div>
+    
+    <div class="content">
+        <p>Parabéns <strong>{{ certificado.participante_nome }}</strong>!</p>
+        
+        <p>Seu certificado de participação está pronto e disponível para download!</p>
+        
+        <div class="certificate-info">
+            <h3>📋 Detalhes do Certificado</h3>
+            <p><strong>Evento:</strong> {{ certificado.evento_nome }}</p>
+            <p><strong>Participante:</strong> {{ certificado.participante_nome }}</p>
+            <p><strong>Data de Emissão:</strong> {{ certificado.created_at|date:"d/m/Y H:i" }}</p>
+            
+            <div class="validation-code">
+                <h4>🔒 Código de Validação</h4>
+                <p style="font-family: monospace; font-size: 18px; font-weight: bold; margin: 0;">
+                    {{ certificado.codigo_validacao }}
+                </p>
+                <p style="font-size: 14px; margin: 5px 0 0 0;">
+                    Use este código para validar a autenticidade do certificado
+                </p>
+            </div>
+        </div>
+        
+        {% if certificado.arquivo_pdf %}
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{ certificado.arquivo_pdf.url }}" class="download-button">
+                📄 Baixar Certificado (PDF)
+            </a>
+        </div>
+        {% endif %}
+        
+        <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 15px; margin: 20px 0;">
+            <h4>💡 Informações Importantes:</h4>
+            <ul>
+                <li><strong>Validade:</strong> Este certificado tem validade permanente</li>
+                <li><strong>Autenticidade:</strong> Pode ser validado usando o código acima</li>
+                <li><strong>Formato:</strong> O arquivo está em formato PDF para impressão</li>
+                <li><strong>Compartilhamento:</strong> Você pode compartilhar o código de validação</li>
+            </ul>
+        </div>
+        
+        <p>Se você não conseguir baixar o certificado ou tiver alguma dúvida, entre em contato conosco.</p>
+        
+        <p>Obrigado por participar do nosso evento!</p>
+        
+        <p>Atenciosamente,<br>
+        <strong>Equipe de Eventos</strong></p>
+    </div>
+    
+    <div class="footer">
+        <p>Este é um email automático, não responda a esta mensagem.</p>
+        <p>Para validar este certificado, visite nossa plataforma e use o código de validação.</p>
+    </div>
+</body>
+</html>

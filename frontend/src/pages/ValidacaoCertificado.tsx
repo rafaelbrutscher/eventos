@@ -22,23 +22,8 @@ export function ValidacaoCertificado() {
     setResultado(null);
 
     try {
-      // --- MOCK TEMPORÁRIO ---
-      await new Promise(r => setTimeout(r, 1000));
-      if (codigo.toUpperCase() !== 'ABC-123') {
-        throw new Error('Código de validação inválido');
-      }
-      const mockResultado: ValidacaoInfo = {
-        nome_participante: 'Usuário Teste (Mock)',
-        nome_evento: 'Conferência de React',
-        data_emissao: '2025-12-11',
-        status: 'valido',
-      };
-      // --- FIM DO MOCK ---
-
-      // (Chamada real)
-      // const mockResultado = await validarCertificado(codigo);
-
-      setResultado(mockResultado);
+      const resultado = await validarCertificado(codigo);
+      setResultado(resultado);
 
     } catch (err: any) {
       setError(err.message);
@@ -51,14 +36,24 @@ export function ValidacaoCertificado() {
   const renderResultado = () => {
     if (!resultado) return null;
 
-    return (
-      <div className={styles.loginForm} style={{ marginTop: '2rem', backgroundColor: '#e8f5e9' }}>
-        <h2 style={{ color: '#2e7d32' }}>Certificado Válido</h2>
-        <p><strong>Participante:</strong> {resultado.nome_participante}</p>
-        <p><strong>Evento:</strong> {resultado.nome_evento}</p>
-        <p><strong>Emissão:</strong> {new Date(resultado.data_emissao).toLocaleDateString()}</p>
-      </div>
-    );
+    if (resultado.valido) {
+      return (
+        <div className={styles.loginForm} style={{ marginTop: '2rem', backgroundColor: '#e8f5e9' }}>
+          <h2 style={{ color: '#2e7d32' }}>✅ Certificado Válido</h2>
+          <p><strong>Participante:</strong> {resultado.participante_nome}</p>
+          <p><strong>Evento:</strong> {resultado.evento_nome}</p>
+          <p><strong>Código:</strong> {resultado.codigo}</p>
+        </div>
+      );
+    } else {
+      return (
+        <div className={styles.loginForm} style={{ marginTop: '2rem', backgroundColor: '#ffebee' }}>
+          <h2 style={{ color: '#c62828' }}>❌ Certificado Inválido</h2>
+          <p><strong>Código:</strong> {resultado.codigo}</p>
+          <p><strong>Mensagem:</strong> {resultado.mensagem}</p>
+        </div>
+      );
+    }
   };
 
   return (
@@ -75,9 +70,11 @@ export function ValidacaoCertificado() {
             type="text"
             id="codigo"
             value={codigo}
-            onChange={(e) => setCodigo(e.target.value)}
-            placeholder="Ex: ABC-123"
+            onChange={(e) => setCodigo(e.target.value.trim())}
+            placeholder="Ex: ABC-123-DEF ou 123456789"
+            disabled={loading}
             required
+            maxLength={50}
           />
         </div>
 
