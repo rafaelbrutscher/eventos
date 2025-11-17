@@ -80,7 +80,23 @@ class Inscricao extends Model
      */
     public function cancelar(): bool
     {
+        // Verificar se já está cancelada
+        if ($this->status === 'cancelada') {
+            return true; // Já está cancelada, não precisa fazer nada
+        }
+
         $this->status = 'cancelada';
         return $this->save();
+    }
+
+    /**
+     * Verifica se o usuário já tem inscrição ativa para um evento
+     */
+    public static function hasActiveInscription(int $usuarioId, int $eventoId): bool
+    {
+        return self::where('usuario_id', $usuarioId)
+            ->where('evento_id', $eventoId)
+            ->where('status', 'ativa')
+            ->exists();
     }
 }

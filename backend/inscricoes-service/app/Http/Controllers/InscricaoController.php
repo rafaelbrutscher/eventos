@@ -136,18 +136,12 @@ class InscricaoController extends Controller
             }
 
             // Verifica se já tem inscrição ativa neste evento
-            $inscricaoExistente = Inscricao::doUsuario($usuarioId)
-                ->doEvento($eventoId)
-                ->ativas()
-                ->first();
-
-            if ($inscricaoExistente) {
+            if (Inscricao::hasActiveInscription($usuarioId, $eventoId)) {
                 Log::warning('Tentativa de inscrição duplicada', [
                     'service' => 'inscricoes-service',
                     'action' => 'duplicate_inscription',
                     'usuario_id' => $usuarioId,
-                    'evento_id' => $eventoId,
-                    'existing_id' => $inscricaoExistente->id
+                    'evento_id' => $eventoId
                 ]);
 
                 return response()->json([

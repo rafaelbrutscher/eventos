@@ -12,7 +12,7 @@ class EventosService
 
     public function __construct()
     {
-        $this->baseUrl = config('app.eventos_service_url', env('EVENTOS_SERVICE_URL', 'http://127.0.0.1:8002'));
+        $this->baseUrl = env('EVENTOS_SERVICE_URL', 'http://eventos-service:8000');
     }
 
     /**

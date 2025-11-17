@@ -13,7 +13,7 @@ class InscricoesService
 
     public function __construct()
     {
-        $this->baseUrl = env('INSCRICOES_SERVICE_URL', 'http://localhost:8003');
+        $this->baseUrl = env('INSCRICOES_SERVICE_URL', 'http://inscricoes-service:8000');
         $this->jwtSecret = env('JWT_SECRET');
     }
 

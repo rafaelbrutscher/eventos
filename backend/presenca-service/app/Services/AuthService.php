@@ -34,7 +34,7 @@ class AuthService
 
             if ($response->status() === 404) {
                 Log::warning('Usuário não encontrado', [
-                    'service' => 'inscricoes-service',
+                    'service' => 'presenca-service',
                     'action' => 'validate_user_not_found',
                     'usuario_id' => $usuarioId
                 ]);
@@ -43,7 +43,7 @@ class AuthService
             }
 
             Log::error('Erro na validação do usuário', [
-                'service' => 'inscricoes-service',
+                'service' => 'presenca-service',
                 'action' => 'validate_user_error',
                 'usuario_id' => $usuarioId,
                 'status_code' => $response->status(),
@@ -54,7 +54,7 @@ class AuthService
 
         } catch (Exception $e) {
             Log::error('Falha crítica na validação do usuário', [
-                'service' => 'inscricoes-service',
+                'service' => 'presenca-service',
                 'action' => 'validate_user_critical_error',
                 'usuario_id' => $usuarioId,
                 'error' => $e->getMessage()
