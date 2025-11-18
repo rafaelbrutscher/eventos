@@ -13,14 +13,14 @@ Sistema completo de gestão de eventos com arquitetura de microserviços, desenv
 
 ### Frontend
 - **React SPA** (Porta 3000): Interface do usuário com suporte offline
-- **Gateway Nginx** (Porta 80): Proxy reverso para todos os serviços
+- **Acesso Direto**: Cada serviço disponível em sua porta específica
 
 ## 🚀 Tecnologias
 
 ### Backend
 - **Framework**: Laravel 12.0 (PHP 8.2) + Django 5.0 (Python 3.11)
 - **Autenticação**: JWT (php-open-source-saver/jwt-auth)
-- **Banco de Dados**: MySQL 8.0 + PostgreSQL 15
+- **Banco de Dados**: MySQL 8.0 (compartilhado por todos os serviços)
 - **Cache/Filas**: Redis 7
 - **Geração PDF**: WeasyPrint
 - **Task Queue**: Celery
@@ -33,7 +33,7 @@ Sistema completo de gestão de eventos com arquitetura de microserviços, desenv
 
 ### Infraestrutura
 - **Containerização**: Docker + Docker Compose
-- **Proxy**: Nginx (Gateway)
+- **Acesso**: Direto por portas específicas
 - **Cache/Queue**: Redis
 
 ## 🐳 Instalação com Docker (Recomendado)
@@ -66,12 +66,12 @@ docker-compose exec eventos-service php artisan migrate
 docker-compose exec inscricoes-service php artisan migrate
 docker-compose exec presenca-service php artisan migrate
 
-# Django service (PostgreSQL separado)
+# Django service (usando MySQL compartilhado)
 docker-compose exec certificados-service python manage.py migrate
 ```
 
 ### 4. Acessar Sistema
-- **Gateway Principal**: http://177.44.248.89
+- **Frontend**: http://177.44.248.89:3000
 - **Frontend**: http://177.44.248.89:3000
 - **Auth Service**: http://177.44.248.89:8001
 - **Eventos Service**: http://177.44.248.89:8002
@@ -87,7 +87,7 @@ docker-compose exec certificados-service python manage.py migrate
 - Node.js 18+
 - Composer
 - MySQL 8.0+
-- PostgreSQL 15+
+- Docker & Docker Compose
 - Redis
 
 ### 2. Configure os Microserviços Laravel
@@ -374,7 +374,7 @@ docker-compose up -d --force-recreate
 
 # Backup dos bancos
 docker-compose exec mysql mysqldump -u eventos -peventos123 eventos > backup_mysql.sql
-docker-compose exec postgres pg_dumpall -U certificados > backup_postgres.sql
+docker-compose exec mysql mysqldump -u eventos_user -pevents2024 --all-databases > backup_mysql.sql
 ```
 
 ## 🔧 Monitoramento e Logs
@@ -428,7 +428,7 @@ docker-compose logs > sistema-logs.txt
   - `inscricoes` - Inscrições dos participantes (inscricoes-service)
   - `presencas` - Registros de check-in (presenca-service)
 
-### PostgreSQL (Certificados)
+### MySQL (Compartilhado)
 - **Database**: `certificados`
 - **Tabelas**:
   - `certificados` - Dados dos certificados gerados
@@ -459,28 +459,20 @@ docker-compose exec presenca-service php artisan migrate --force
 docker-compose exec certificados-service python manage.py migrate
 
 # 5. Acesse o sistema
-# Gateway: http://177.44.248.89
+# Frontend: http://177.44.248.89:3000
 # Frontend: http://177.44.248.89:3000
 ```
 
 ### 📋 Checklist Completo
 Veja **DEPLOY-PRODUCAO.md** para checklist detalhado de produção.
 
-### Nginx (Host)
-```nginx
-server {
-    listen 80;
-    server_name seu-dominio.com;
-
-    location / {
-        proxy_pass http://localhost:80;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
+### Acesso aos Serviços
+- Frontend React: http://177.44.248.89:3000
+- Auth Service: http://177.44.248.89:8001/api
+- Eventos Service: http://177.44.248.89:8002/api  
+- Inscrições Service: http://177.44.248.89:8003/api
+- Presença Service: http://177.44.248.89:8004/api
+- Certificados Service: http://177.44.248.89:8005/api
 
 ## 🧪 Testes
 
@@ -514,7 +506,6 @@ docker-compose exec frontend npm test
 
 ### Arquivos de Configuração
 - `docker-compose.yml`: Orquestração dos containers
-- `gateway.conf`: Configuração do proxy Nginx
 - `backend/*/Dockerfile`: Imagens Docker de cada serviço
 - `frontend/Dockerfile`: Imagem do React
 

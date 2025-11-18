@@ -184,7 +184,7 @@ services:
       DB_PASSWORD: eventos123
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: "eventos-certificados-secret-key-change-in-production"
-      ALLOWED_HOSTS: "localhost,127.0.0.1,177.44.248.89,certificados-service,gateway"
+      ALLOWED_HOSTS: "localhost,127.0.0.1,177.44.248.89,certificados-service"
     ports:
       - "8005:8000"
     volumes:
@@ -245,24 +245,7 @@ services:
     networks:
       - eventos_network
 
-  # Gateway/Proxy reverso (Nginx)
-  gateway:
-    image: nginx:alpine
-    container_name: eventos_gateway
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    volumes:
-      - ./gateway.conf:/etc/nginx/conf.d/default.conf
-    depends_on:
-      - auth-service
-      - eventos-service
-      - inscricoes-service
-      - presenca-service
-      - certificados-service
-      - frontend
-    networks:
-      - eventos_network
+# Configuração removida: Gateway com Nginx (simplificado para acesso direto às portas dos serviços)
 
 networks:
   eventos_network:

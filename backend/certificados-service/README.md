@@ -10,7 +10,7 @@ Microserviço responsável por gerar, armazenar e enviar certificados para parti
 - Celery (para tarefas assíncronas)
 - Redis (broker do Celery)
 - WeasyPrint (geração de PDF)
-- PostgreSQL (banco de dados)
+- MySQL (banco de dados compartilhado)
 
 ## Funcionalidades
 
@@ -99,7 +99,7 @@ celery -A certificados_service worker -l info
 ### Variáveis de Ambiente
 ```env
 # Database
-DATABASE_URL=postgresql://user:password@localhost:5432/certificados_db
+DATABASE_URL=mysql://eventos_user:events2024@mysql:3306/eventos_db
 
 # Redis
 REDIS_URL=redis://localhost:6379/0
