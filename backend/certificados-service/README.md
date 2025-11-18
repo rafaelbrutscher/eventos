@@ -102,12 +102,12 @@ celery -A certificados_service worker -l info
 DATABASE_URL=mysql://eventos_user:events2024@mysql:3306/eventos_db
 
 # Redis
-REDIS_URL=redis://localhost:6379/0
+REDIS_URL=redis://177.44.248.89:6379/0
 
 # Microservices URLs
-EVENTOS_SERVICE_URL=http://127.0.0.1:8002
-INSCRICOES_SERVICE_URL=http://127.0.0.1:8003
-PRESENCA_SERVICE_URL=http://127.0.0.1:8004
+EVENTOS_SERVICE_URL=http://177.44.248.89:8002
+INSCRICOES_SERVICE_URL=http://177.44.248.89:8003
+PRESENCA_SERVICE_URL=http://177.44.248.89:8004
 
 # Email
 EMAIL_HOST=smtp.gmail.com
