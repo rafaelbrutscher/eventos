@@ -234,7 +234,7 @@ export const getEventosDisponiveis = async (): Promise<EventoBasico[]> => {
   try {
     if (isOnline()) {
       const { data } = await privateApi.get<EventosDisponiveisResponse>('/eventos-disponiveis');
-      
+
       if (data.success) {
         // Salvar em cache
         salvarEventosDisponiveis(data.data.eventos);
@@ -268,11 +268,11 @@ export const baixarDadosCompletos = async (): Promise<{
 
   try {
     console.log('Iniciando download de dados completos...');
-    
+
     // 1. Buscar todos os eventos disponíveis
     const eventos = await getEventosDisponiveis();
     console.log('Eventos encontrados:', eventos.length);
-    
+
     if (eventos.length === 0) {
       throw new Error('Nenhum evento disponível para download');
     }
@@ -280,14 +280,14 @@ export const baixarDadosCompletos = async (): Promise<{
     // 2. Buscar inscrições de cada evento
     const inscricoesPorEvento: Record<number, Inscrito[]> = {};
     let totalInscricoes = 0;
-    
+
     for (const evento of eventos) {
       try {
         console.log(`Baixando inscrições do evento: ${evento.nome}`);
         const lista = await getListaPresencaEvento(evento.id);
         inscricoesPorEvento[evento.id] = lista.data.inscritos;
         totalInscricoes += lista.data.inscritos.length;
-        
+
         // Pequena pausa para não sobrecarregar a API
         await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error) {
@@ -295,7 +295,7 @@ export const baixarDadosCompletos = async (): Promise<{
         inscricoesPorEvento[evento.id] = [];
       }
     }
-    
+
     // 3. Salvar cache completo
     const cacheCompleto: CacheCompletoOffline = {
       eventos,
@@ -303,19 +303,19 @@ export const baixarDadosCompletos = async (): Promise<{
       timestamp: Date.now(),
       versao: '1.0'
     };
-    
+
     salvarCacheCompleto(cacheCompleto);
-    
+
     // 4. Calcular tamanho do cache
     const cacheString = JSON.stringify(cacheCompleto);
     const tamanhoKB = Math.round(cacheString.length / 1024);
-    
+
     console.log('Download completo finalizado:', {
       eventos: eventos.length,
       totalInscricoes,
       tamanhoKB
     });
-    
+
     return {
       success: true,
       message: 'Dados baixados com sucesso! Sistema pronto para funcionar offline.',
@@ -325,7 +325,7 @@ export const baixarDadosCompletos = async (): Promise<{
         tamanhoCache: `${tamanhoKB} KB`
       }
     };
-    
+
   } catch (error: any) {
     console.error('Erro no download de dados completos:', error);
     throw new Error(error.message || 'Falha ao baixar dados completos');
@@ -340,10 +340,10 @@ export const getListaPresencaEvento = async (eventoId: number): Promise<ListaPre
     // Tentar buscar online primeiro
     if (isOnline()) {
       const { data } = await privateApi.get<ListaPresencaResponse>(`/eventos/${eventoId}/lista-presenca`);
-      
+
       // Salvar em cache individual
       salvarListaCache(eventoId, data);
-      
+
       return data;
     }
   } catch (error) {
@@ -355,9 +355,8 @@ export const getListaPresencaEvento = async (eventoId: number): Promise<ListaPre
   if (cacheCompleto && isCacheValido(cacheCompleto)) {
     const evento = cacheCompleto.eventos.find(e => e.id === eventoId);
     const inscritos = cacheCompleto.inscricoesPorEvento[eventoId];
-    
+
     if (evento && inscritos) {
-      console.log('Usando cache completo offline para evento:', evento.nome);
       return {
         success: true,
         data: {
@@ -370,12 +369,53 @@ export const getListaPresencaEvento = async (eventoId: number): Promise<ListaPre
     }
   }
 
+  // Fallback: tentar cache do cadastro rápido
+  try {
+    const inscritosPorEvento = localStorage.getItem('inscritosPorEvento');
+    if (inscritosPorEvento) {
+      const dados = JSON.parse(inscritosPorEvento);
+      const inscritos = dados[eventoId];
+
+      if (inscritos && Array.isArray(inscritos)) {
+        // Buscar dados do evento do cache de eventos
+        const eventosCache = localStorage.getItem('eventosCache');
+        let eventoInfo = null;
+
+        if (eventosCache) {
+          const eventos = JSON.parse(eventosCache);
+          eventoInfo = eventos.find((e: any) => e.id === eventoId);
+        }
+
+        if (!eventoInfo) {
+          eventoInfo = {
+            id: eventoId,
+            nome: `Evento ${eventoId}`,
+            data_inicio: new Date().toISOString(),
+            data_fim: new Date().toISOString(),
+            local: 'Local não definido'
+          };
+        }
+
+        return {
+          success: true,
+          data: {
+            evento: eventoInfo,
+            inscritos,
+            total_inscritos: inscritos.length,
+            total_presencas: inscritos.filter((i: any) => i.ja_tem_presenca).length
+          }
+        };
+      }
+    }
+  } catch (error) {
+    console.warn('Erro ao usar cache do cadastro rápido:', error);
+  }
+
   // Fallback para cache individual
   const cache = getCacheListasPresenca();
   const listaCache = cache[eventoId];
-  
+
   if (listaCache) {
-    console.log('Usando cache individual offline');
     return {
       success: listaCache.success,
       data: listaCache.data
@@ -452,7 +492,7 @@ export const sincronizarCheckinsOffline = async (): Promise<{
   }
 
   const checkinsOffline = getCheckinsOffline().filter(c => !c.sincronizado);
-  
+
   if (checkinsOffline.length === 0) {
     return {
       success: true,
@@ -539,7 +579,7 @@ export const getStatusOffline = () => {
   const lastSync = localStorage.getItem(STORAGE_KEYS.LAST_SYNC);
   const cacheCompleto = getCacheCompleto();
   const eventosCache = getEventosDisponiveisCache();
-  
+
   return {
     isOnline: isOnline(),
     checkinsPendentes: pendentes,
@@ -564,7 +604,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
     console.log('Conexão restaurada - dados offline podem ser sincronizados');
   });
-  
+
   window.addEventListener('offline', () => {
     console.log('Conexão perdida - modo offline ativado');
   });

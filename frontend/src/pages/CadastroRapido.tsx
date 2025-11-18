@@ -46,38 +46,53 @@ export function CadastroRapido() {
     setError(null);
     try {
       const token = localStorage.getItem('authToken');
-      
       if (!token) {
         setError('Token de autenticação não encontrado');
         return;
       }
-
       const response = await fetch('http://177.44.248.89:8002/api/eventos', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
       });
-      
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
-
       const data = await response.json();
-
       if (data.success && Array.isArray(data.data)) {
         // Filtrar apenas eventos que não são de template
         const eventosDisponiveis = data.data.filter((evento: Evento) => {
           const naoETemplate = !evento.nome?.toLowerCase().includes('template');
           const temNome = evento.nome && evento.nome.trim() !== '';
-          
           return naoETemplate && temNome;
         });
-        
         setEventos(eventosDisponiveis);
-        
         if (eventosDisponiveis.length === 0) {
           setError('Nenhum evento disponível para cadastro rápido');
+        } else {
+          const token = localStorage.getItem('authToken');
+          const inscritosPorEvento: Record<number, any[]> = {};
+          for (const evento of eventosDisponiveis) {
+            try {
+              const resp = await fetch(`http://177.44.248.89:8004/api/eventos/${evento.id}/lista-presenca`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+              if (resp.ok) {
+                const lista = await resp.json();
+                if (lista.success && lista.data && Array.isArray(lista.data.inscritos)) {
+                  inscritosPorEvento[evento.id] = lista.data.inscritos;
+                }
+              }
+            } catch (e) {
+              // Ignorar erro de evento individual
+            }
+          }
+          localStorage.setItem('inscritosPorEvento', JSON.stringify(inscritosPorEvento));
+          localStorage.setItem('eventosCache', JSON.stringify(eventosDisponiveis));
         }
       } else {
         setError('Formato de resposta inválido do servidor');
@@ -145,12 +160,12 @@ export function CadastroRapido() {
           });
 
           setSuccess(
-            `✅ Cadastro salvo offline com sucesso!\n` +
-            `👤 ${nome}\n` +
-            `📧 ${email}\n` +
-            `🎫 Será inscrito no evento após sincronizar\n` +
-            `⏰ Para check-in: usar tela "Check-in" depois da sincronização\n\n` +
-            `⚠️ Use o botão 'Sincronizar' para criar inscrição`
+            `Cadastro salvo offline com sucesso!\n` +
+            `Nome: ${nome}\n` +
+            `Email: ${email}\n` +
+            `Será inscrito no evento após sincronizar\n` +
+            `Para check-in: usar tela "Check-in" depois da sincronização\n\n` +
+            `Use o botão 'Sincronizar' para criar inscrição`
           );
         } else {
           throw new Error(data.message || 'Erro no servidor');
@@ -166,12 +181,12 @@ export function CadastroRapido() {
       });
 
       setSuccess(
-        `💾 Cadastro salvo OFFLINE!\n` +
-        `👤 ${nome}\n` +
-        `📧 ${email}\n` +
-        `🎫 Evento: ${eventos.find(e => e.id === eventoSelecionado)?.nome}\n` +
-        `⏰ Para check-in: usar tela "Check-in" após sincronizar\n\n` +
-        `⚠️ OFFLINE: Use 'Sincronizar' quando voltar online\n` +
+        `Cadastro salvo OFFLINE!\n` +
+        `Nome: ${nome}\n` +
+        `Email: ${email}\n` +
+        `Evento: ${eventos.find(e => e.id === eventoSelecionado)?.nome}\n` +
+        `Para check-in: usar tela "Check-in" após sincronizar\n\n` +
+        `OFFLINE: Use 'Sincronizar' quando voltar online\n` +
         `Erro: ${err.message}`
       );
     }
@@ -180,7 +195,6 @@ export function CadastroRapido() {
     setNome('');
     setEmail('');
     setEventoSelecionado(null);
-    setMarcarPresenca(true);
     setLoading(false);
   };
 
@@ -209,7 +223,7 @@ export function CadastroRapido() {
           flexWrap: 'wrap',
           gap: '1rem'
         }}>
-          <h2>📝 Cadastro Rápido - Evento Offline</h2>
+          <h2>Cadastro Rápido - Evento Offline</h2>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
             <button
               onClick={carregarEventos}
@@ -224,19 +238,19 @@ export function CadastroRapido() {
                 fontSize: '14px'
               }}
             >
-              {loadingEventos ? '⏳' : '🔄'} Recarregar Eventos
+              {loadingEventos ? 'Carregando...' : 'Recarregar Eventos'}
             </button>
             <div style={{ 
-              backgroundColor: cadastrosOfflineCount > 0 ? '#fff3cd' : '#e3f2fd', 
+                backgroundColor: cadastrosOfflineCount > 0 ? '#fff3cd' : '#e3f2fd', 
               padding: '0.5rem 1rem', 
               borderRadius: '8px',
               fontSize: '14px',
               border: cadastrosOfflineCount > 0 ? '1px solid #ffc107' : 'none'
             }}>
-              👤 {user?.name} ({user?.role})
+              {user?.name} ({user?.role})
               {cadastrosOfflineCount > 0 && (
                 <div style={{ fontSize: '12px', color: '#856404', marginTop: '2px' }}>
-                  💾 {cadastrosOfflineCount} cadastro{cadastrosOfflineCount !== 1 ? 's' : ''} offline pendente{cadastrosOfflineCount !== 1 ? 's' : ''}
+                  {cadastrosOfflineCount} cadastro{cadastrosOfflineCount !== 1 ? 's' : ''} offline pendente{cadastrosOfflineCount !== 1 ? 's' : ''}
                 </div>
               )}
             </div>
@@ -251,7 +265,7 @@ export function CadastroRapido() {
           fontSize: '14px',
           borderLeft: '4px solid #ffc107'
         }}>
-          <h3 style={{ margin: '0 0 0.5rem 0', color: '#856404' }}>ℹ️ Sistema Offline - Como funciona:</h3>
+          <h3 style={{ margin: '0 0 0.5rem 0', color: '#856404' }}>Sistema Offline - Como funciona:</h3>
           <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#856404' }}>
             <li><strong>Offline:</strong> Dados são salvos no navegador (localStorage)</li>
             <li><strong>Cadastro:</strong> Nome + email + evento selecionado</li>
@@ -431,7 +445,7 @@ export function CadastroRapido() {
               cursor: loading ? 'not-allowed' : 'pointer'
             }}
           >
-            {loading ? '⏳ Salvando...' : '💾 Salvar Offline (Cadastro Rápido)'}
+            {loading ? 'Salvando...' : 'Salvar Offline (Cadastro Rápido)'}
           </button>
           
           {cadastrosOfflineCount > 0 && (
@@ -444,7 +458,7 @@ export function CadastroRapido() {
               fontSize: '14px',
               border: '1px solid #2196f3'
             }}>
-              💾 <strong>{cadastrosOfflineCount}</strong> cadastro{cadastrosOfflineCount !== 1 ? 's' : ''} aguardando sincronização
+              <strong>{cadastrosOfflineCount}</strong> cadastro{cadastrosOfflineCount !== 1 ? 's' : ''} aguardando sincronização
             </div>
           )}
         </form>

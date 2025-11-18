@@ -18,17 +18,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.atendente' => \App\Http\Middleware\CheckAtendenteRole::class,
         ]);
 
-        // Configuração de CORS e Logs
+        // Configuração de CORS
         $middleware->api([
             \App\Http\Middleware\CorsMiddleware::class,
-            \App\Http\Middleware\LogRequestsMiddleware::class,
         ]);
 
         $middleware->alias([
             'jwt.auth' => \App\Http\Middleware\JWTMiddleware::class,
             'check.atendente' => \App\Http\Middleware\CheckAtendenteRole::class,
             'cors' => \App\Http\Middleware\CorsMiddleware::class,
-            'logs' => \App\Http\Middleware\LogRequestsMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
