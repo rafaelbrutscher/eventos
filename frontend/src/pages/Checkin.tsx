@@ -1,9 +1,115 @@
 // /src/pages/CheckIn.tsx
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getListaPresencaEvento, realizarCheckin, limparDadosOffline, type Inscrito } from '../services/presencaService';
+import { 
+  getListaPresencaEvento, 
+  realizarCheckin, 
+  limparDadosOffline, 
+  baixarDadosCompletos,
+  getEventosDisponiveis,
+  getStatusOffline,
+  type Inscrito,
+  type EventoBasico 
+} from '../services/presencaService';
 import { getEvents } from '../services/eventService';
 import { OfflineStatus } from '../components/OfflineStatus';
+
+// Componente para dashboard offline
+function OfflineDashboard() {
+  const [statusOffline, setStatusOffline] = useState<any>({});
+  const [carregandoDados, setCarregandoDados] = useState(false);
+  const [mostrarDetalhes, setMostrarDetalhes] = useState(false);
+
+  useEffect(() => {
+    const atualizarStatus = () => {
+      const status = getStatusOffline();
+      setStatusOffline(status);
+    };
+    atualizarStatus();
+    const interval = setInterval(atualizarStatus, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleBaixarDadosCompletos = async () => {
+    setCarregandoDados(true);
+    try {
+      const resultado = await baixarDadosCompletos();
+      alert(`${resultado.message}\n\nDetalhes:\n- Eventos: ${resultado.detalhes.eventos}\n- Total de inscrições: ${resultado.detalhes.totalInscricoes}\n- Tamanho do cache: ${resultado.detalhes.tamanhoCache}`);
+      
+      // Atualizar status
+      const novoStatus = getStatusOffline();
+      setStatusOffline(novoStatus);
+    } catch (error: any) {
+      alert(`Erro ao baixar dados: ${error.message}`);
+    } finally {
+      setCarregandoDados(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex-1">
+          <h3 className="font-bold text-blue-800 mb-2">Sistema Offline</h3>
+          <div className="text-sm text-blue-700">
+            <p className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${
+                statusOffline.isOnline ? 'bg-green-500' : 'bg-red-500'
+              }`}></span>
+              Status: {statusOffline.isOnline ? 'Online' : 'Offline'}
+            </p>
+            {statusOffline.cacheCompleto?.existe && (
+              <p className="mt-1">
+                Cache: {statusOffline.cacheCompleto.eventos} eventos, {statusOffline.cacheCompleto.totalInscricoes} inscrições
+                ({statusOffline.cacheCompleto.tamanhoKB} KB)
+              </p>
+            )}
+            {statusOffline.checkinsPendentes > 0 && (
+              <p className="mt-1 text-orange-600">
+                {statusOffline.checkinsPendentes} check-ins pendentes de sincronização
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          {statusOffline.isOnline && (
+            <button
+              onClick={handleBaixarDadosCompletos}
+              disabled={carregandoDados}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-sm"
+            >
+              {carregandoDados ? 'Baixando...' : 'Baixar Dados'}
+            </button>
+          )}
+          <button
+            onClick={() => setMostrarDetalhes(!mostrarDetalhes)}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+          >
+            {mostrarDetalhes ? 'Ocultar' : 'Detalhes'}
+          </button>
+          <button
+            onClick={() => {
+              if (window.confirm('Limpar todos os dados offline? Esta ação não pode ser desfeita.')) {
+                limparDadosOffline();
+                window.location.reload();
+              }
+            }}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+          >
+            Limpar
+          </button>
+        </div>
+      </div>
+      {mostrarDetalhes && (
+        <div className="mt-4 p-3 bg-white rounded border">
+          <pre className="text-xs overflow-auto max-h-40">
+            {JSON.stringify(statusOffline, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function CheckIn() {
   const { user } = useAuth();
@@ -18,21 +124,35 @@ export function CheckIn() {
   useEffect(() => {
     const fetchEventos = async () => {
       try {
-        const data = await getEvents();
-        setEventos(data);
-        
+        // Tentar carregar eventos da API principal primeiro
+        let data = [];
+        try {
+          data = await getEvents();
+          setEventos(data);
+        } catch (error) {
+          // Fallback: tentar carregar eventos disponíveis (pode vir do cache)
+          try {
+            const eventosDisponiveis = await getEventosDisponiveis();
+            setEventos(eventosDisponiveis);
+            data = eventosDisponiveis;
+          } catch (error2) {
+            setMessage({ type: 'error', text: 'Erro ao carregar eventos. Verifique sua conexão.' });
+            return;
+          }
+        }
+        // Se estiver online e houver eventos, verificar se precisa baixar dados completos
         if (navigator.onLine && data.length > 0) {
-          data.forEach(async (evento: any) => {
-            try {
-              await getListaPresencaEvento(evento.id);
-              console.log(`Cache salvo para evento: ${evento.nome}`);
-            } catch (error) {
-              console.log(`Erro ao pré-carregar evento ${evento.nome}:`, error);
-            }
-          });
+          const status = getStatusOffline();
+          // Se não tem cache completo ou está desatualizado, sugerir download
+          if (!status.cacheCompleto?.existe || !status.cacheCompleto?.valido) {
+            setMessage({
+              type: 'warning',
+              text: 'Para usar o sistema offline, é recomendado baixar os dados completos.'
+            });
+          }
         }
       } catch (error) {
-        console.error('Erro ao carregar eventos:', error);
+        console.error('Erro geral ao carregar eventos:', error);
         setMessage({ type: 'error', text: 'Erro ao carregar eventos' });
       }
     };
@@ -135,6 +255,11 @@ export function CheckIn() {
           </p>
         </div>
 
+        {/* Painel de Controle Offline */}
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <OfflineDashboard />
+        </div>
+
         {/* Mensagem de feedback */}
         {message && (
           <div className={`mb-4 p-4 rounded-md ${
@@ -145,9 +270,6 @@ export function CheckIn() {
               : 'bg-red-100 border border-red-400 text-red-700'
           }`}>
             <div className="flex items-start gap-2">
-              <span className="text-lg">
-                {message.type === 'success' ? '✅' : message.type === 'warning' ? '⚠️' : '❌'}
-              </span>
               <span>{message.text}</span>
             </div>
           </div>
@@ -170,7 +292,7 @@ export function CheckIn() {
                 }}
                 className="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
               >
-                🔄 Recarregar Lista
+                Recarregar Lista
               </button>
             )}
           </div>
@@ -235,7 +357,7 @@ export function CheckIn() {
                         className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                         disabled={inscrito.ja_tem_presenca}
                       >
-                        {inscrito.ja_tem_presenca ? '✅ Presente' : 'Fazer Check-in'}
+                        {inscrito.ja_tem_presenca ? 'Presente' : 'Fazer Check-in'}
                       </button>
                       {inscrito.ja_tem_presenca && (
                         <span className="text-xs text-green-600">Check-in realizado</span>
