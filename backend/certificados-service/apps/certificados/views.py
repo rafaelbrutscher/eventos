@@ -86,20 +86,41 @@ def listar_eventos_participados(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Buscar presenças do usuário consultando diretamente o presenca-service
-        presencas_response = requests.get(f'http://177.44.248.89:8004/api/presencas/usuario/{user_id}')
-        
-        if presencas_response.status_code != 200:
+        # Buscar presenças do usuário consultando diretamente o presença-service
+        try:
+            presencas_response = requests.get(
+                f'http://177.44.248.89:8004/api/presencas/usuario/{user_id}',
+                timeout=10  # Timeout de 10 segundos
+            )
+            
+            if presencas_response.status_code != 200:
+                logger.warning(f'Erro ao buscar presenças: status {presencas_response.status_code}')
+                return Response(
+                    {'success': True, 'data': [], 'total': 0}, 
+                    status=status.HTTP_200_OK
+                )
+        except requests.exceptions.Timeout:
+            logger.warning('Timeout ao buscar presenças do usuário')
             return Response(
-                {'erro': 'Erro ao buscar presenças do usuário'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {'success': True, 'data': [], 'total': 0}, 
+                status=status.HTTP_200_OK
+            )
+        except requests.exceptions.RequestException as e:
+            logger.error(f'Erro de rede ao buscar presenças: {str(e)}')
+            return Response(
+                {'success': True, 'data': [], 'total': 0}, 
+                status=status.HTTP_200_OK
             )
         
         presencas = presencas_response.json().get('data', [])
         eventos_participados = []
         eventos_processados = set()
         
-        for presenca in presencas:
+        # Limitar processamento para evitar timeouts
+        max_eventos = 50  # Máximo de 50 eventos por vez
+        presencas_limitadas = presencas[:max_eventos] if len(presencas) > max_eventos else presencas
+        
+        for presenca in presencas_limitadas:
             evento_id = presenca['evento_id']
             
             # Evitar duplicatas
@@ -108,9 +129,30 @@ def listar_eventos_participados(request):
             eventos_processados.add(evento_id)
             
             # Buscar dados do evento
-            evento_response = requests.get(f'http://177.44.248.89:8002/api/eventos/{evento_id}')
-            if evento_response.status_code == 200:
-                evento = evento_response.json()['data']
+            try:
+                evento_response = requests.get(
+                    f'http://177.44.248.89:8002/api/eventos/{evento_id}',
+                    timeout=5  # Timeout menor para cada evento
+                )
+                
+                if evento_response.status_code != 200:
+                    logger.warning(f'Evento {evento_id} não encontrado ou erro no serviço')
+                    continue
+                    
+                evento = evento_response.json().get('data')
+                if not evento:
+                    logger.warning(f'Dados do evento {evento_id} inválidos')
+                    continue
+                    
+            except requests.exceptions.Timeout:
+                logger.warning(f'Timeout ao buscar evento {evento_id}')
+                continue
+            except requests.exceptions.RequestException as e:
+                logger.error(f'Erro ao buscar evento {evento_id}: {str(e)}')
+                continue
+            except Exception as e:
+                logger.error(f'Erro inesperado ao processar evento {evento_id}: {str(e)}')
+                continue
                 
                 # Verificar se evento já terminou (pode gerar certificado)
                 from datetime import datetime
@@ -157,10 +199,11 @@ def listar_eventos_participados(request):
         })
         
     except Exception as e:
-        logger.error(f'Erro ao listar eventos participados: {str(e)}')
+        logger.error(f'Erro crítico ao listar eventos participados: {str(e)}', exc_info=True)
+        # Retornar lista vazia em vez de erro para não quebrar o frontend
         return Response(
-            {'erro': 'Erro interno do servidor'}, 
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {'success': True, 'data': [], 'total': 0}, 
+            status=status.HTTP_200_OK
         )
 
 

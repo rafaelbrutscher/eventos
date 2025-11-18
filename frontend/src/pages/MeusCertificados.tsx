@@ -32,9 +32,17 @@ export function MeusCertificados() {
       try {
         const data = await getEventosConcluidos();
         setEventos(data);
+        
+        // Se não há eventos, mostrar mensagem informativa
+        if (data.length === 0) {
+          setError('Você ainda não participou de nenhum evento ou o serviço de certificados está temporariamente indisponível.');
+        }
       } catch (err: any) {
         console.error('Erro ao carregar eventos:', err);
-        setError(err.message);
+        // Mensagem mais amigável para o usuário
+        setError('Não foi possível carregar seus certificados no momento. Tente novamente mais tarde.');
+        // Ainda assim, definir eventos como array vazio para não quebrar a interface
+        setEventos([]);
       } finally {
         setLoading(false);
       }

@@ -69,6 +69,12 @@ export const getEventosConcluidos = async (): Promise<EventoConcluido[]> => {
     
     const { data } = await privateApi.get(`/meus-eventos/?user_id=${userId}`);
     
+    // Verificar se há dados válidos
+    if (!data || !data.data || !Array.isArray(data.data)) {
+      console.log('Usuário não possui eventos concluídos');
+      return [];
+    }
+    
     // Mapear para o formato esperado pelo frontend
     return data.data.map((evento: any) => ({
       id: evento.evento_id,
@@ -80,8 +86,22 @@ export const getEventosConcluidos = async (): Promise<EventoConcluido[]> => {
       certificado_codigo: evento.certificado_codigo
     }));
   } catch (error: any) {
-    console.error("Erro ao buscar eventos concluídos:", error.response?.data || error.message);
-    throw new Error(error.response?.data?.erro || 'Falha ao buscar eventos');
+    console.log("Erro ao buscar eventos concluídos:", error.response?.data || error.message);
+    
+    // Tratar erros específicos
+    if (error.code === 'ERR_NETWORK' || error.code === 'NETWORK_ERROR') {
+      console.log('Serviço de certificados indisponível, retornando lista vazia');
+      return [];
+    }
+    
+    if (error.response?.status === 404 || error.message?.includes('ERR_EMPTY_RESPONSE')) {
+      console.log('Nenhum evento encontrado para o usuário');
+      return [];
+    }
+    
+    // Para outros erros, ainda retornar array vazio em vez de quebrar a aplicação
+    console.warn('Erro desconhecido ao buscar eventos, retornando lista vazia:', error);
+    return [];
   }
 };
 
