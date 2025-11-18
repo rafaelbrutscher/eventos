@@ -57,7 +57,7 @@ class Certificado(models.Model):
         """Busca dados atuais do participante via API"""
         import requests
         try:
-            response = requests.get(f'http://127.0.0.1:8001/api/usuarios/{self.participante_id}')
+            response = requests.get(f'http://177.44.248.89:8001/api/usuarios/{self.participante_id}')
             if response.status_code == 200:
                 data = response.json()['data']
                 return {
@@ -75,7 +75,7 @@ class Certificado(models.Model):
         """Busca dados atuais do evento via API"""
         import requests
         try:
-            response = requests.get(f'http://127.0.0.1:8002/api/eventos/{self.evento_id}')
+            response = requests.get(f'http://177.44.248.89:8002/api/eventos/{self.evento_id}')
             if response.status_code == 200:
                 data = response.json()['data']
                 return {

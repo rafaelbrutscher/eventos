@@ -92,7 +92,7 @@ def preparar_contexto_template(evento: Dict[str, Any], participante: Dict[str, A
         },
         'sistema': {
             'nome': 'Portal de Eventos',
-            'url': "http://127.0.0.1:8004",
+            'url': "http://177.44.248.89:8004",
         }
     }
 

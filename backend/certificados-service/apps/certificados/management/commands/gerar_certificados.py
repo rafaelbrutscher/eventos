@@ -53,7 +53,7 @@ class Command(BaseCommand):
         """Busca eventos que já finalizaram"""
         try:
             # Buscar eventos do microserviço de eventos
-            eventos_url = 'http://127.0.0.1:8001/api/eventos'
+            eventos_url = 'http://177.44.248.89:8002/api/eventos'
             response = requests.get(eventos_url)
             
             if response.status_code != 200:
@@ -94,7 +94,7 @@ class Command(BaseCommand):
             self.stdout.write(f'📋 Processando evento {evento_id}...')
             
             # Buscar participantes que confirmaram presença
-            presenca_url = f'http://127.0.0.1:8003/api/eventos/{evento_id}/presencas'
+            presenca_url = f'http://177.44.248.89:8004/api/eventos/{evento_id}/presencas'
             response = requests.get(presenca_url)
             
             if response.status_code != 200:
@@ -127,8 +127,8 @@ class Command(BaseCommand):
                     certificados_gerados += 1
                 else:
                     # Buscar dados do participante
-                    user_response = requests.get(f'http://127.0.0.1:8000/api/usuarios/{participante_id}')
-                    evento_response = requests.get(f'http://127.0.0.1:8001/api/eventos/{evento_id}')
+                    user_response = requests.get(f'http://177.44.248.89:8001/api/usuarios/{participante_id}')
+                    evento_response = requests.get(f'http://177.44.248.89:8002/api/eventos/{evento_id}')
                     
                     if user_response.status_code == 200 and evento_response.status_code == 200:
                         user_data = user_response.json()['data']

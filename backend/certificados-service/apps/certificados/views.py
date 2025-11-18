@@ -87,7 +87,7 @@ def listar_eventos_participados(request):
             )
         
         # Buscar presenças do usuário consultando diretamente o presenca-service
-        presencas_response = requests.get(f'http://127.0.0.1:8003/api/presencas/usuario/{user_id}')
+        presencas_response = requests.get(f'http://177.44.248.89:8004/api/presencas/usuario/{user_id}')
         
         if presencas_response.status_code != 200:
             return Response(
@@ -108,7 +108,7 @@ def listar_eventos_participados(request):
             eventos_processados.add(evento_id)
             
             # Buscar dados do evento
-            evento_response = requests.get(f'http://127.0.0.1:8001/api/eventos/{evento_id}')
+            evento_response = requests.get(f'http://177.44.248.89:8002/api/eventos/{evento_id}')
             if evento_response.status_code == 200:
                 evento = evento_response.json()['data']
                 
@@ -193,13 +193,13 @@ def gerar_certificado_usuario(request):
                     'codigo': certificado_existente.codigo_validacao,
                     'gerado': certificado_existente.gerado,
                     'url_download': f'/api/certificados/{certificado_existente.id}/download/',
-                    'url_validacao': f'http://127.0.0.1:8004/api/certificados/validar/{certificado_existente.codigo_validacao}/'
+                    'url_validacao': f'http://177.44.248.89:8005/api/certificados/validar/{certificado_existente.codigo_validacao}/'
                 }
             })
         
         # Buscar dados do usuário e evento
-        user_response = requests.get(f'http://127.0.0.1:8000/api/usuarios/{user_id}')
-        evento_response = requests.get(f'http://127.0.0.1:8001/api/eventos/{evento_id}')
+        user_response = requests.get(f'http://177.44.248.89:8001/api/usuarios/{user_id}')
+        evento_response = requests.get(f'http://177.44.248.89:8002/api/eventos/{evento_id}')
         
         if user_response.status_code != 200:
             return Response(
@@ -235,7 +235,7 @@ def gerar_certificado_usuario(request):
                 'codigo': certificado.codigo_validacao,
                 'gerado': certificado.gerado,
                 'url_download': f'/api/certificados/{certificado.id}/download/',
-                'url_validacao': f'http://127.0.0.1:8004/api/certificados/validar/{certificado.codigo_validacao}/'
+                'url_validacao': f'http://177.44.248.89:8005/api/certificados/validar/{certificado.codigo_validacao}/'
             }
         })
         
@@ -255,8 +255,8 @@ def download_certificado(request, certificado_id):
         certificado = get_object_or_404(Certificado, id=certificado_id)
         
         # Buscar dados atuais do usuário e evento
-        user_response = requests.get(f'http://127.0.0.1:8000/api/usuarios/{certificado.participante_id}')
-        evento_response = requests.get(f'http://127.0.0.1:8001/api/eventos/{certificado.evento_id}')
+        user_response = requests.get(f'http://177.44.248.89:8001/api/usuarios/{certificado.participante_id}')
+        evento_response = requests.get(f'http://177.44.248.89:8002/api/eventos/{certificado.evento_id}')
         
         if user_response.status_code != 200 or evento_response.status_code != 200:
             return HttpResponse(

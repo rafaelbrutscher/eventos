@@ -97,7 +97,7 @@ class ProcessarSincronizacaoOffline extends Command
             $inscricaoResponse = Http::timeout(30)->withHeaders([
                 'Authorization' => 'Bearer ' . $systemToken,
                 'Content-Type' => 'application/json'
-            ])->post('http://127.0.0.1:8002/api/inscricoes', [
+            ])->post('http://177.44.248.89:8003/api/inscricoes', [
                 'usuario_id' => $pendencia->usuario_id,
                 'evento_id' => $pendencia->evento_id,
                 'cadastro_rapido' => true
@@ -120,7 +120,7 @@ class ProcessarSincronizacaoOffline extends Command
                     $presencaResponse = Http::timeout(30)->withHeaders([
                         'Authorization' => 'Bearer ' . $systemToken,
                         'Content-Type' => 'application/json'
-                    ])->post('http://127.0.0.1:8003/api/check-in', [
+                    ])->post('http://177.44.248.89:8004/api/check-in', [
                         'inscricao_id' => $inscricaoId,
                         'data_hora' => $dados['created_at'] ?? now()->format('Y-m-d H:i:s'),
                         'origem' => 'offline'
