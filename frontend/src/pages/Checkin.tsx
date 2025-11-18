@@ -123,19 +123,28 @@ export function CheckIn() {
   // Carregar eventos ativos
   useEffect(() => {
     const fetchEventos = async () => {
+      console.log('=== CHECKIN: Iniciando carregamento de eventos ===');
+      console.log('Navigator.onLine:', navigator.onLine);
+      
       try {
         // Tentar carregar eventos da API principal primeiro
         let data = [];
         try {
+          console.log('CHECKIN: Tentando getEvents()');
           data = await getEvents();
+          console.log('CHECKIN: getEvents() sucesso:', data.length, 'eventos');
           setEventos(data);
         } catch (error) {
+          console.log('CHECKIN: getEvents() falhou:', error);
           // Fallback: tentar carregar eventos disponíveis (pode vir do cache)
           try {
+            console.log('CHECKIN: Tentando getEventosDisponiveis()');
             const eventosDisponiveis = await getEventosDisponiveis();
+            console.log('CHECKIN: getEventosDisponiveis() sucesso:', eventosDisponiveis.length, 'eventos');
             setEventos(eventosDisponiveis);
             data = eventosDisponiveis;
           } catch (error2) {
+            console.log('CHECKIN: getEventosDisponiveis() falhou:', error2);
             setMessage({ type: 'error', text: 'Erro ao carregar eventos. Verifique sua conexão.' });
             return;
           }
@@ -163,13 +172,50 @@ export function CheckIn() {
   // Carregar lista de presença do evento selecionado
   useEffect(() => {
     if (selectedEvento) {
+      console.log('=== CHECKIN: Carregando inscritos do evento', selectedEvento, '===');
+      console.log('Navigator.onLine:', navigator.onLine);
+      
       const fetchInscritos = async () => {
         setLoading(true);
         
         try {
+          console.log('CHECKIN: Chamando getListaPresencaEvento para evento', selectedEvento);
           const response = await getListaPresencaEvento(selectedEvento);
           
-          setInscritos(response.data.inscritos);
+          console.log('CHECKIN: Resposta recebida:', {
+            success: response.success,
+            inscritos_count: response.data?.inscritos?.length || 0,
+            evento: response.data?.evento?.nome,
+            response_keys: Object.keys(response)
+          });
+          
+          if (response.data && response.data.inscritos) {
+            console.log('CHECKIN: Primeiros 3 inscritos:', response.data.inscritos.slice(0, 3));
+            setInscritos(response.data.inscritos);
+          } else {
+            console.log('CHECKIN: PROBLEMA - response.data.inscritos não existe!');
+            console.log('CHECKIN: response.data:', response.data);
+            setInscritos([]);
+          }
+
+          // Verificar cache local
+          const cacheKeys = ['cached_presenca_lists', 'inscritosPorEvento', 'eventosCache'];
+          cacheKeys.forEach(key => {
+            const cache = localStorage.getItem(key);
+            if (cache) {
+              try {
+                const parsed = JSON.parse(cache);
+                console.log(`CHECKIN: Cache ${key}:`, typeof parsed === 'object' ? Object.keys(parsed) : 'not object');
+                if (key === 'inscritosPorEvento' && parsed[selectedEvento]) {
+                  console.log(`CHECKIN: Cache ${key} tem evento ${selectedEvento}:`, parsed[selectedEvento].length, 'inscritos');
+                }
+              } catch (e) {
+                console.log(`CHECKIN: Erro ao parsear cache ${key}:`, e);
+              }
+            } else {
+              console.log(`CHECKIN: Cache ${key} não existe`);
+            }
+          });
 
           // Verificar se veio do cache
           if (!navigator.onLine) {
@@ -184,7 +230,11 @@ export function CheckIn() {
             });
             setTimeout(() => setMessage(null), 3000);
           }
-        } catch (error: any) {          
+        } catch (error: any) {
+          console.log('CHECKIN: Erro ao carregar inscritos:', error);
+          console.log('CHECKIN: Error message:', error.message);
+          console.log('CHECKIN: Error stack:', error.stack);
+          
           setMessage({ 
             type: 'error', 
             text: `Erro ao carregar lista: ${error.message || 'Erro desconhecido'}. ${!navigator.onLine ? 'Verifique se há dados em cache.' : 'Verifique a conexão.'}`
@@ -196,6 +246,7 @@ export function CheckIn() {
 
       fetchInscritos();
     } else {
+      console.log('CHECKIN: Nenhum evento selecionado, limpando inscritos');
       setInscritos([]);
     }
   }, [selectedEvento]);
@@ -241,6 +292,17 @@ export function CheckIn() {
     inscrito.nome.toLowerCase().includes(busca.toLowerCase()) ||
     inscrito.email.toLowerCase().includes(busca.toLowerCase())
   );
+  
+  // Log do estado atual
+  console.log('CHECKIN: Estado atual:', {
+    eventos_count: eventos.length,
+    selectedEvento,
+    inscritos_count: inscritos.length,
+    inscritosFiltrados_count: inscritosFiltrados.length,
+    busca,
+    loading,
+    navigator_online: navigator.onLine
+  });
 
   return (
     <>

@@ -213,14 +213,26 @@ const salvarEventosDisponiveis = (eventos: EventoBasico[]): void => {
 // Recuperar eventos disponíveis do cache
 const getEventosDisponiveisCache = (): EventoBasico[] => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEYS.EVENTOS_DISPONIVEIS);
-    if (stored) {
-      const data = JSON.parse(stored);
-      return data.eventos || [];
+    // Tentar várias chaves de cache
+    const keys = [STORAGE_KEYS.EVENTOS_DISPONIVEIS, 'eventosCache'];
+    
+    for (const key of keys) {
+      const stored = localStorage.getItem(key);
+      if (stored) {
+        const data = JSON.parse(stored);
+        const eventos = key === 'eventosCache' ? data : (data.eventos || []);
+        
+        if (Array.isArray(eventos) && eventos.length > 0) {
+          console.log(`PRESENCA: Eventos encontrados no cache '${key}':`, eventos.length);
+          return eventos;
+        }
+      }
     }
+    
+    console.log('PRESENCA: Nenhum cache de eventos encontrado');
     return [];
   } catch (error) {
-    console.error('Erro ao recuperar eventos disponíveis do cache:', error);
+    console.log('PRESENCA: Erro ao recuperar eventos do cache:', error);
     return [];
   }
 };
@@ -231,10 +243,19 @@ const getEventosDisponiveisCache = (): EventoBasico[] => {
  * Baixa todos os eventos disponíveis
  */
 export const getEventosDisponiveis = async (): Promise<EventoBasico[]> => {
+  console.log('=== PRESENCA SERVICE: getEventosDisponiveis ===');
+  console.log('Is Online:', isOnline());
+  
   try {
     if (isOnline()) {
+      console.log('PRESENCA: Tentando buscar eventos online...');
       const { data } = await privateApi.get<EventosDisponiveisResponse>('/eventos-disponiveis');
-
+      
+      console.log('PRESENCA: Resposta eventos online:', {
+        success: data.success,
+        eventos_count: data.data?.eventos?.length || 0
+      });
+      
       if (data.success) {
         // Salvar em cache
         salvarEventosDisponiveis(data.data.eventos);
@@ -242,14 +263,15 @@ export const getEventosDisponiveis = async (): Promise<EventoBasico[]> => {
       }
     }
   } catch (error) {
-    console.warn('Erro ao buscar eventos online, usando cache:', error);
+    console.log('PRESENCA: Erro ao buscar eventos online:', error);
   }
 
   // Usar cache se offline ou erro
-  return getEventosDisponiveisCache();
-};
-
-/**
+  const eventosCache = getEventosDisponiveisCache();
+  console.log('PRESENCA: Eventos do cache:', eventosCache.length);
+  
+  return eventosCache;
+};/**
  * Baixa dados completos para funcionamento offline
  * Esta função deve ser chamada quando há internet para preparar o modo offline
  */
