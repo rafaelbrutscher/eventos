@@ -32,15 +32,26 @@ class InscricaoController extends Controller
     {
         try {
             $usuarioId = $request->query('usuario_id', $request->attributes->get('user_id'));
+            $eventoId = $request->query('evento_id');
 
+            $query = Inscricao::query();
 
+            if ($eventoId) {
+                // Filtro por evento - usado pelo presenca-service
+                $query->where('evento_id', $eventoId);
+                // Incluir apenas inscrições ativas
+                $query->where('status', 'ativa');
+            } else {
+                // Filtro por usuário - comportamento original
+                $query->where('usuario_id', $usuarioId);
+            }
 
-            $inscricoes = Inscricao::doUsuario($usuarioId)
-                ->orderBy('created_at', 'desc')
-                ->get();
+            $inscricoes = $query->orderBy('created_at', 'desc')->get();
 
-            $inscricoesComDetalhes = $inscricoes->map(function ($inscricao) {
+            $inscricoesComDetalhes = $inscricoes->map(function ($inscricao) use ($eventoId) {
                 $eventoDetails = null;
+                $usuarioDetails = null;
+
                 try {
                     $eventoDetails = $this->eventosService->getEventDetails($inscricao->evento_id);
                 } catch (Exception $e) {
@@ -52,6 +63,20 @@ class InscricaoController extends Controller
                     ]);
                 }
 
+                // Se filtrado por evento, incluir dados do usuário
+                if ($eventoId) {
+                    try {
+                        $usuarioDetails = $this->authService->getUserDetails($inscricao->usuario_id);
+                    } catch (Exception $e) {
+                        Log::warning('Falha ao buscar detalhes do usuário', [
+                            'service' => 'inscricoes-service',
+                            'action' => 'user_details_error',
+                            'usuario_id' => $inscricao->usuario_id,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
+                }
+
                 return [
                     'id' => $inscricao->id,
                     'usuario_id' => $inscricao->usuario_id,
@@ -59,7 +84,8 @@ class InscricaoController extends Controller
                     'status' => $inscricao->status,
                     'created_at' => $inscricao->created_at->format('Y-m-d H:i:s'),
                     'updated_at' => $inscricao->updated_at->format('Y-m-d H:i:s'),
-                    'evento' => $eventoDetails
+                    'evento' => $eventoDetails,
+                    'usuario' => $usuarioDetails
                 ];
             });
 
@@ -93,11 +119,17 @@ class InscricaoController extends Controller
     public function store(Request $request)
     {
         try {
-            // Pega o usuario_id do token JWT (inserido pelo middleware)
-            $usuarioId = $request->attributes->get('user_id');
+            // Se for cadastro rápido, usa o usuario_id do body, senão pega do token JWT
+            if ($request->has('usuario_id') && $request->cadastro_rapido) {
+                $usuarioId = $request->usuario_id;
+            } else {
+                // Pega o usuario_id do token JWT (inserido pelo middleware)
+                $usuarioId = $request->attributes->get('user_id');
+            }
 
             $validator = Validator::make($request->all(), [
                 'evento_id' => 'required|integer|min:1',
+                'usuario_id' => 'sometimes|integer|min:1', // Opcional para cadastro rápido
             ]);
 
             if ($validator->fails()) {
@@ -117,7 +149,8 @@ class InscricaoController extends Controller
 
             $eventoId = $request->evento_id;
 
-            // JWT já validou que o usuário existe - não precisa revalidar
+            // Para cadastro rápido, não validamos usuário pois acabou de ser criado
+            // Para inscrições normais, JWT já validou que o usuário existe
 
             // Valida se evento existe e está ativo
             $eventValidation = $this->eventosService->validateEvent($eventoId);
@@ -157,32 +190,43 @@ class InscricaoController extends Controller
                 'status' => 'ativa'
             ]);
 
-            // Enviar email de confirmação
-            try {
-                $usuarioDetails = $this->authService->getUserDetails($usuarioId);
+            // Para cadastro rápido, não enviamos email de confirmação imediatamente
+            // pois o usuário ainda não completou o cadastro
+            if (!$request->cadastro_rapido) {
+                // Enviar email de confirmação apenas para inscrições normais
+                try {
+                    $usuarioDetails = $this->authService->getUserDetails($usuarioId);
 
-                if ($usuarioDetails && isset($usuarioDetails['email'])) {
-                    Mail::to($usuarioDetails['email'])->send(new InscricaoConfirmada(
-                        $inscricao->toArray(),
-                        $eventValidation['data'],
-                        $usuarioDetails
-                    ));
+                    if ($usuarioDetails && isset($usuarioDetails['email'])) {
+                        Mail::to($usuarioDetails['email'])->send(new InscricaoConfirmada(
+                            $inscricao->toArray(),
+                            $eventValidation['data'],
+                            $usuarioDetails
+                        ));
 
-                    Log::info('Email de confirmação enviado', [
+                        Log::info('Email de confirmação enviado', [
+                            'service' => 'inscricoes-service',
+                            'action' => 'email_confirmacao_enviado',
+                            'inscricao_id' => $inscricao->id,
+                            'email' => $usuarioDetails['email']
+                        ]);
+                    }
+                } catch (Exception $e) {
+                    Log::warning('Falha ao enviar email de confirmação', [
                         'service' => 'inscricoes-service',
-                        'action' => 'email_confirmacao_enviado',
+                        'action' => 'email_confirmacao_falha',
                         'inscricao_id' => $inscricao->id,
-                        'email' => $usuarioDetails['email']
+                        'error' => $e->getMessage()
                     ]);
+                    // Não falha a inscrição por causa do email
                 }
-            } catch (Exception $e) {
-                Log::warning('Falha ao enviar email de confirmação', [
+            } else {
+                Log::info('Email de confirmação pulado para cadastro rápido', [
                     'service' => 'inscricoes-service',
-                    'action' => 'email_confirmacao_falha',
+                    'action' => 'email_confirmacao_skipped_cadastro_rapido',
                     'inscricao_id' => $inscricao->id,
-                    'error' => $e->getMessage()
+                    'usuario_id' => $usuarioId
                 ]);
-                // Não falha a inscrição por causa do email
             }
 
             return response()->json([

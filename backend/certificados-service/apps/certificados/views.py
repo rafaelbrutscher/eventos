@@ -1,65 +1,21 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
-from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
+from django.template import Template, Context
 from django.conf import settings
 import logging
 import os
+import requests
 
 from .models import Certificado
 from .serializers import CertificadoSerializer, CertificadoValidacaoSerializer
+from apps.core.utils import preparar_contexto_template, criar_nome_arquivo_pdf, criar_diretorio_certificados
 
 logger = logging.getLogger(__name__)
-
-
-def enviar_certificado_por_email(certificado):
-    """Envia o certificado por email para o participante"""
-    try:
-        # Renderizar template HTML
-        html_content = render_to_string('emails/certificado_disponivel.html', {
-            'certificado': certificado
-        })
-        
-        # Criar email
-        email = EmailMultiAlternatives(
-            subject=f'Certificado Disponível - {certificado.evento_nome}',
-            body=f'Seu certificado do evento "{certificado.evento_nome}" está disponível!',
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[certificado.participante_email]
-        )
-        
-        # Adicionar versão HTML
-        email.attach_alternative(html_content, "text/html")
-        
-        # Anexar PDF se existir
-        if certificado.arquivo_pdf and os.path.exists(certificado.arquivo_pdf.path):
-            email.attach_file(certificado.arquivo_pdf.path)
-        
-        # Enviar
-        email.send()
-        
-        # Marcar como enviado
-        certificado.enviado = True
-        certificado.save()
-        
-        logger.info(f'Certificado enviado por email para {certificado.participante_email}', extra={
-            'certificado_id': certificado.id,
-            'email': certificado.participante_email
-        })
-        
-        return True
-        
-    except Exception as e:
-        logger.error(f'Erro ao enviar certificado por email: {str(e)}', extra={
-            'certificado_id': certificado.id,
-            'email': certificado.participante_email,
-            'error': str(e)
-        })
-        return False
 
 
 class CertificadoViewSet(viewsets.ModelViewSet):
@@ -115,51 +71,217 @@ class CertificadoViewSet(viewsets.ModelViewSet):
             })
             
             return Response(serializer.data, status=status.HTTP_404_NOT_FOUND)
-    
-    def create(self, request, *args, **kwargs):
-        """Criar certificado e enviar por email"""
-        response = super().create(request, *args, **kwargs)
-        
-        if response.status_code == 201:
-            certificado = Certificado.objects.get(pk=response.data['id'])
-            
-            # Enviar por email em background (opcional)
-            try:
-                enviar_certificado_por_email(certificado)
-            except Exception as e:
-                logger.warning(f'Falha ao enviar certificado por email durante criação: {str(e)}')
-        
-        return response
-    
-    @action(detail=True, methods=['post'], url_path='enviar-email')
-    def enviar_email(self, request, pk=None):
-        """Enviar certificado por email manualmente"""
-        try:
-            certificado = self.get_object()
-            
-            if not certificado.participante_email:
-                return Response(
-                    {'erro': 'Email do participante não encontrado'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            sucesso = enviar_certificado_por_email(certificado)
-            
-            if sucesso:
-                return Response({
-                    'sucesso': True,
-                    'mensagem': 'Certificado enviado por email com sucesso',
-                    'email': certificado.participante_email
-                })
-            else:
-                return Response(
-                    {'erro': 'Falha ao enviar certificado por email'},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-                
-        except Exception as e:
-            logger.error(f'Erro crítico ao enviar certificado por email: {str(e)}')
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def listar_eventos_participados(request):
+    """Lista eventos que o usuário participou e pode gerar certificado"""
+    try:
+        # Obter user_id do parâmetro
+        user_id = request.GET.get('user_id')
+        if not user_id:
             return Response(
-                {'erro': 'Erro interno do servidor'},
+                {'erro': 'user_id é obrigatório'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Buscar presenças do usuário consultando diretamente o presenca-service
+        presencas_response = requests.get(f'http://127.0.0.1:8003/api/presencas/usuario/{user_id}')
+        
+        if presencas_response.status_code != 200:
+            return Response(
+                {'erro': 'Erro ao buscar presenças do usuário'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+        presencas = presencas_response.json().get('data', [])
+        eventos_participados = []
+        eventos_processados = set()
+        
+        for presenca in presencas:
+            evento_id = presenca['evento_id']
+            
+            # Evitar duplicatas
+            if evento_id in eventos_processados:
+                continue
+            eventos_processados.add(evento_id)
+            
+            # Buscar dados do evento
+            evento_response = requests.get(f'http://127.0.0.1:8001/api/eventos/{evento_id}')
+            if evento_response.status_code == 200:
+                evento = evento_response.json()['data']
+                
+                # Verificar se evento já terminou (pode gerar certificado)
+                from datetime import datetime
+                from django.utils import timezone
+                
+                try:
+                    data_fim_str = evento.get('data_fim', '')
+                    if data_fim_str:
+                        if 'T' in data_fim_str:
+                            data_fim = datetime.fromisoformat(data_fim_str.replace('Z', '+00:00'))
+                        else:
+                            data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d')
+                            data_fim = timezone.make_aware(data_fim)
+                        
+                        pode_gerar_certificado = data_fim < timezone.now()
+                    else:
+                        pode_gerar_certificado = True  # Se não tem data fim, permite gerar
+                except:
+                    pode_gerar_certificado = True  # Em caso de erro, permite gerar
+                
+                # Verificar se certificado já existe
+                certificado_existente = Certificado.objects.filter(
+                    evento_id=evento_id,
+                    participante_id=user_id
+                ).first()
+                
+                eventos_participados.append({
+                    'evento_id': evento_id,
+                    'nome': evento['nome'],
+                    'descricao': evento.get('descricao', ''),
+                    'data_inicio': evento.get('data_inicio'),
+                    'data_fim': evento.get('data_fim'),
+                    'pode_gerar_certificado': pode_gerar_certificado,
+                    'certificado_gerado': certificado_existente is not None,
+                    'certificado_codigo': certificado_existente.codigo_validacao if certificado_existente else None,
+                    'certificado_id': certificado_existente.id if certificado_existente else None,
+                    'data_presenca': presenca.get('data_hora')
+                })
+        
+        return Response({
+            'success': True,
+            'data': eventos_participados,
+            'total': len(eventos_participados)
+        })
+        
+    except Exception as e:
+        logger.error(f'Erro ao listar eventos participados: {str(e)}')
+        return Response(
+            {'erro': 'Erro interno do servidor'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def gerar_certificado_usuario(request):
+    """Permite ao usuário gerar seu próprio certificado"""
+    try:
+        evento_id = request.data.get('evento_id')
+        user_id = request.data.get('user_id')
+        
+        if not evento_id or not user_id:
+            return Response(
+                {'erro': 'evento_id e user_id são obrigatórios'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verificar se certificado já existe
+        certificado_existente = Certificado.objects.filter(
+            evento_id=evento_id,
+            participante_id=user_id
+        ).first()
+        
+        if certificado_existente:
+            return Response({
+                'success': True,
+                'message': 'Certificado já existe',
+                'certificado': {
+                    'id': certificado_existente.id,
+                    'codigo': certificado_existente.codigo_validacao,
+                    'gerado': certificado_existente.gerado,
+                    'url_download': f'/api/certificados/{certificado_existente.id}/download/',
+                    'url_validacao': f'http://127.0.0.1:8004/api/certificados/validar/{certificado_existente.codigo_validacao}/'
+                }
+            })
+        
+        # Buscar dados do usuário e evento
+        user_response = requests.get(f'http://127.0.0.1:8000/api/usuarios/{user_id}')
+        evento_response = requests.get(f'http://127.0.0.1:8001/api/eventos/{evento_id}')
+        
+        if user_response.status_code != 200:
+            return Response(
+                {'erro': 'Usuário não encontrado'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+            
+        if evento_response.status_code != 200:
+            return Response(
+                {'erro': 'Evento não encontrado'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        user_data = user_response.json()['data']
+        evento_data = evento_response.json()['data']
+        
+        # Criar certificado simples (sem PDF por enquanto)
+        certificado = Certificado.objects.create(
+            evento_id=evento_data['id'],
+            participante_id=user_data['id'],
+            participante_nome=user_data['name'],
+            participante_email=user_data['email'],
+            evento_nome=evento_data['nome'],
+            gerado=True,
+            disponivel_usuario=True
+        )
+        
+        return Response({
+            'success': True,
+            'message': 'Certificado gerado com sucesso',
+            'certificado': {
+                'id': certificado.id,
+                'codigo': certificado.codigo_validacao,
+                'gerado': certificado.gerado,
+                'url_download': f'/api/certificados/{certificado.id}/download/',
+                'url_validacao': f'http://127.0.0.1:8004/api/certificados/validar/{certificado.codigo_validacao}/'
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f'Erro ao gerar certificado do usuário: {str(e)}')
+        return Response(
+            {'erro': f'Erro interno do servidor: {str(e)}'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def download_certificado(request, certificado_id):
+    """Visualizar/Imprimir certificado usando template existente"""
+    try:
+        certificado = get_object_or_404(Certificado, id=certificado_id)
+        
+        # Buscar dados atuais do usuário e evento
+        user_response = requests.get(f'http://127.0.0.1:8000/api/usuarios/{certificado.participante_id}')
+        evento_response = requests.get(f'http://127.0.0.1:8001/api/eventos/{certificado.evento_id}')
+        
+        if user_response.status_code != 200 or evento_response.status_code != 200:
+            return HttpResponse(
+                '<h1>Erro ao carregar dados do certificado</h1>', 
+                content_type='text/html'
+            )
+        
+        user_data = user_response.json()['data']
+        evento_data = evento_response.json()['data']
+        
+        # Preparar contexto para o template
+        contexto = preparar_contexto_template(evento_data, user_data, certificado.codigo_validacao)
+        
+        # Carregar e renderizar template
+        with open('templates/certificados/template_base.html', 'r', encoding='utf-8') as f:
+            template_content = f.read()
+        
+        template = Template(template_content)
+        html_renderizado = template.render(Context(contexto))
+        
+        return HttpResponse(html_renderizado, content_type='text/html')
+            
+    except Exception as e:
+        logger.error(f'Erro ao gerar certificado: {str(e)}')
+        return HttpResponse(
+            f'<h1>Erro ao gerar certificado</h1><p>{str(e)}</p>', 
+            content_type='text/html'
+        )

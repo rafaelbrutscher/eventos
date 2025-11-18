@@ -191,12 +191,14 @@ export const realizarCheckin = async (payload: CheckinPayload): Promise<CheckinR
       console.log('Check-in realizado online:', data);
       return data;
     } catch (error: any) {
-      console.warn('Erro no check-in online, salvando offline:', error);
-      // Continua para salvar offline
+      console.error('Erro no check-in online:', error);
+      // Se há internet mas erro na API, propagar o erro (não salvar offline)
+      throw new Error(error.response?.data?.message || 'Erro ao realizar check-in online');
     }
   }
 
-  // Salvar offline
+  // Só salva offline se realmente não há internet
+  console.log('Sem internet - salvando check-in offline');
   const checkinOffline: CheckinOffline = {
     ...checkinData,
     id: `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,

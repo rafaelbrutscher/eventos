@@ -12,6 +12,7 @@ use App\Mail\ParticipacaoConfirmada;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Exception;
 
@@ -69,7 +70,7 @@ class PresencaController extends Controller
                     'inscricao_id' => $inscricao['id'],
                     'usuario_id' => $inscricao['usuario_id'],
                     'evento_id' => $inscricao['evento_id'],
-                    'nome' => $inscricao['usuario']['nome'] ?? 'Nome não disponível',
+                    'nome' => $inscricao['usuario']['name'] ?? 'Nome não disponível',
                     'email' => $inscricao['usuario']['email'] ?? 'Email não disponível',
                     'cpf' => $inscricao['usuario']['cpf'] ?? null,
                     'status_inscricao' => $inscricao['status'],
@@ -163,8 +164,8 @@ class PresencaController extends Controller
                 ], 409);
             }
 
-            // Validar inscrição (opcional - pode ser removido para modo offline)
-            if ($origem === 'online') {
+            // Validar inscrição (opcional - pular validação para cadastros rápidos)
+            if ($origem === 'online' && !$request->input('cadastro_rapido', false)) {
                 $token = $request->bearerToken();
                 $inscricaoValidacao = $this->inscricoesService->validarInscricao($inscricaoId, $token);
 
@@ -194,25 +195,28 @@ class PresencaController extends Controller
             try {
                 $token = $request->bearerToken();
 
-                // Buscar dados da inscrição para pegar o usuário
+                // Buscar dados da inscrição e do usuário
                 $inscricaoResponse = $this->inscricoesService->validarInscricao($inscricaoId, $token);
                 $eventoResponse = $this->eventosService->getEventDetails($eventoId);
 
-                if ($inscricaoResponse['success'] && $eventoResponse && isset($inscricaoResponse['data']['usuario']['email'])) {
-                    $usuarioDetails = $inscricaoResponse['data']['usuario'];
+                if ($inscricaoResponse['success'] && $eventoResponse && $eventoResponse['success']) {
+                    // Buscar dados do usuário diretamente do auth-service
+                    $usuarioDetails = $this->authService->getUserDetails($inscricaoResponse['data']['usuario_id']);
 
-                    Mail::to($usuarioDetails['email'])->send(new ParticipacaoConfirmada(
-                        $presenca->toArray(),
-                        $eventoResponse,
-                        $usuarioDetails
-                    ));
+                    if ($usuarioDetails && isset($usuarioDetails['email'])) {
+                        Mail::to($usuarioDetails['email'])->send(new ParticipacaoConfirmada(
+                            $presenca->toArray(),
+                            $eventoResponse['data'],
+                            $usuarioDetails
+                        ));
 
-                    Log::info('Email de participação enviado', [
-                        'service' => 'presenca-service',
-                        'action' => 'email_participacao_enviado',
-                        'presenca_id' => $presenca->id,
-                        'email' => $usuarioDetails['email']
-                    ]);
+                        Log::info('Email de participação enviado', [
+                            'service' => 'presenca-service',
+                            'action' => 'email_participacao_enviado',
+                            'presenca_id' => $presenca->id,
+                            'email' => $usuarioDetails['email']
+                        ]);
+                    }
                 }
             } catch (Exception $e) {
                 Log::warning('Falha ao enviar email de participação', [
@@ -404,6 +408,110 @@ class PresencaController extends Controller
             Log::error('Erro crítico ao verificar presença', [
                 'service' => 'presenca-service',
                 'inscricao_id' => $inscricaoId,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro interno do servidor'
+            ], 500);
+        }
+    }
+
+    /**
+     * GET /eventos/{evento_id}/presencas
+     * Busca todas as presenças de um evento (para certificados-service)
+     */
+    public function getPresencasPorEvento(Request $request, $eventoId)
+    {
+        try {
+            // Buscar presenças do evento com join na tabela inscricoes para obter usuario_id
+            $presencas = DB::table('presencas')
+                ->join('inscricoes', 'presencas.inscricao_id', '=', 'inscricoes.id')
+                ->where('presencas.evento_id', $eventoId)
+                ->select(
+                    'presencas.id',
+                    'presencas.inscricao_id',
+                    'presencas.evento_id',
+                    'inscricoes.usuario_id',
+                    'presencas.data_hora',
+                    'presencas.origem'
+                )
+                ->get()
+                ->map(function ($presenca) {
+                    return [
+                        'id' => $presenca->id,
+                        'inscricao_id' => $presenca->inscricao_id,
+                        'evento_id' => $presenca->evento_id,
+                        'usuario_id' => $presenca->usuario_id,
+                        'data_hora' => $presenca->data_hora,
+                        'origem' => $presenca->origem,
+                        'status' => 'confirmado'
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $presencas,
+                'total' => $presencas->count()
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('Erro ao buscar presenças do evento', [
+                'service' => 'presenca-service',
+                'evento_id' => $eventoId,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro interno do servidor'
+            ], 500);
+        }
+    }
+
+    /**
+     * GET /presencas/usuario/{user_id}
+     * Busca todas as presenças de um usuário (para certificados-service)
+     */
+    public function getPresencasPorUsuario(Request $request, $userId)
+    {
+        try {
+            // Buscar presenças do usuário com join na tabela inscricoes
+            $presencas = DB::table('presencas')
+                ->join('inscricoes', 'presencas.inscricao_id', '=', 'inscricoes.id')
+                ->where('inscricoes.usuario_id', $userId)
+                ->select(
+                    'presencas.id',
+                    'presencas.inscricao_id',
+                    'presencas.evento_id',
+                    'inscricoes.usuario_id',
+                    'presencas.data_hora',
+                    'presencas.origem'
+                )
+                ->get()
+                ->map(function ($presenca) {
+                    return [
+                        'id' => $presenca->id,
+                        'inscricao_id' => $presenca->inscricao_id,
+                        'evento_id' => $presenca->evento_id,
+                        'usuario_id' => $presenca->usuario_id,
+                        'data_hora' => $presenca->data_hora,
+                        'origem' => $presenca->origem,
+                        'status' => 'confirmado'
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $presencas,
+                'total' => $presencas->count()
+            ], 200);
+
+        } catch (Exception $e) {
+            Log::error('Erro ao buscar presenças do usuário', [
+                'service' => 'presenca-service',
+                'user_id' => $userId,
                 'error' => $e->getMessage()
             ]);
 

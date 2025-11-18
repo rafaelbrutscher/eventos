@@ -21,7 +21,7 @@ class EventosService
     public function validateEvent(int $eventoId): array
     {
         try {
-            $response = Http::timeout(10)->get("{$this->baseUrl}/api/eventos/{$eventoId}");
+            $response = Http::timeout(30)->get("{$this->baseUrl}/api/eventos/{$eventoId}");
 
             if ($response->successful()) {
                 $data = $response->json();

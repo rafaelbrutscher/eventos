@@ -76,9 +76,30 @@ export function Login() {
           Entrar
         </button>
         
-        <Link to="/register" style={{ textAlign: 'center', color: '#fff', marginTop: '1rem' }}>
-          Não tem uma conta? Crie uma agora
-        </Link>
+        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+          <Link to="/register" style={{ color: '#fff', textDecoration: 'none' }}>
+            Não tem uma conta? Crie uma agora
+          </Link>
+        </div>
+        
+        <div style={{ 
+          textAlign: 'center', 
+          marginTop: '1rem', 
+          paddingTop: '1rem', 
+          borderTop: '1px solid rgba(255,255,255,0.2)' 
+        }}>
+          <Link 
+            to="/completar-cadastro" 
+            style={{ 
+              color: '#fff', 
+              textDecoration: 'none',
+              fontSize: '14px',
+              opacity: 0.9
+            }}
+          >
+            🚀 Completar Cadastro Rápido
+          </Link>
+        </div>
       </form>
     </div>
   );

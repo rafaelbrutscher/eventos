@@ -37,35 +37,62 @@ def criar_nome_arquivo_pdf(evento_nome: str, participante_nome: str, codigo: str
 def preparar_contexto_template(evento: Dict[str, Any], participante: Dict[str, Any], codigo: str) -> Dict[str, Any]:
     """Prepara contexto para renderização do template"""
     from datetime import datetime
+    from django.conf import settings
     
-    # Formatar datas
-    data_inicio = datetime.fromisoformat(evento['data_inicio'].replace('Z', '+00:00'))
-    data_fim = datetime.fromisoformat(evento['data_fim'].replace('Z', '+00:00'))
+    # Tratar datas de forma segura
+    try:
+        if evento.get('data_inicio'):
+            data_inicio = datetime.fromisoformat(evento['data_inicio'].replace('Z', '+00:00'))
+            data_inicio_fmt = data_inicio.strftime('%d/%m/%Y')
+            data_inicio_completa = data_inicio.strftime('%d de %B de %Y')
+        else:
+            data_inicio_fmt = 'N/A'
+            data_inicio_completa = 'N/A'
+    except:
+        data_inicio_fmt = evento.get('data_inicio', 'N/A')
+        data_inicio_completa = evento.get('data_inicio', 'N/A')
+    
+    try:
+        if evento.get('data_fim'):
+            data_fim = datetime.fromisoformat(evento['data_fim'].replace('Z', '+00:00'))
+            data_fim_fmt = data_fim.strftime('%d/%m/%Y')
+            data_fim_completa = data_fim.strftime('%d de %B de %Y')
+        else:
+            data_fim_fmt = 'N/A'
+            data_fim_completa = 'N/A'
+    except:
+        data_fim_fmt = evento.get('data_fim', 'N/A')
+        data_fim_completa = evento.get('data_fim', 'N/A')
+    
+    # Mapear campos corretamente (API retorna 'name', template espera 'nome')
+    participante_nome = participante.get('name') or participante.get('nome', 'Participante')
+    participante_email = participante.get('email', '')
     
     return {
         'evento': {
-            'nome': evento['nome'],
+            'nome': evento.get('nome', 'Evento'),
             'descricao': evento.get('descricao', ''),
             'local': evento.get('local', ''),
-            'data_inicio': data_inicio.strftime('%d/%m/%Y'),
-            'data_fim': data_fim.strftime('%d/%m/%Y'),
-            'data_inicio_completa': data_inicio.strftime('%d de %B de %Y'),
-            'data_fim_completa': data_fim.strftime('%d de %B de %Y'),
+            'data_inicio': data_inicio_fmt,
+            'data_fim': data_fim_fmt,
+            'data_inicio_completa': data_inicio_completa,
+            'data_fim_completa': data_fim_completa,
             'organizador': evento.get('organizador', 'Portal de Eventos'),
+            'duracao': calcular_duracao_evento(evento.get('data_inicio', ''), evento.get('data_fim', ''))
         },
         'participante': {
-            'nome': participante['nome'],
-            'email': participante['email'],
+            'nome': participante_nome,
+            'email': participante_email,
             'cpf': participante.get('cpf', ''),
         },
         'certificado': {
             'codigo': codigo,
             'data_emissao': datetime.now().strftime('%d/%m/%Y'),
-            'url_validacao': f"{settings.ALLOWED_HOSTS[0]}/api/certificados/validar/{codigo}/"
+            'url_validacao': f"http://localhost:3000/validar-certificado"
         },
         'sistema': {
             'nome': 'Portal de Eventos',
-            'url': f"http://{settings.ALLOWED_HOSTS[0]}",
+            'url': "http://127.0.0.1:8004",
         }
     }
 

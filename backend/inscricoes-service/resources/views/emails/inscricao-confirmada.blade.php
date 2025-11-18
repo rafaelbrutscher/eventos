@@ -51,7 +51,7 @@
     </div>
 
     <div class="content">
-        <p>Olá <strong>{{ $usuario['nome'] }}</strong>,</p>
+        <p>Olá <strong>{{ $usuario['name'] }}</strong>,</p>
 
         <p>Sua inscrição foi confirmada com sucesso! Aqui estão os detalhes do seu evento:</p>
 

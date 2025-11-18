@@ -4,7 +4,6 @@ import { useParams } from 'react-router-dom';
 import { getEventById } from '../services/eventService';
 import type { Event } from '../services/eventService';
 import { criarInscricao, verificarInscricao } from '../services/inscricaoService';
-import { enviarEmail } from '../services/emailService';
 import styles from './Home.module.css'; 
 import { useAuth } from '../context/AuthContext';
 
@@ -73,19 +72,7 @@ export function EventDetails() {
       await criarInscricao({ evento_id: id });
       setSubscriptionSuccess(true);
       setIsAlreadySubscribed(true);
-      // Enviar email de confirmação (opcional)
-      if (isAuthenticated && event) {
-        try {
-          await enviarEmail({
-            to_email: 'usuario@email.com', // TODO: Obter do contexto/API
-            to_name: 'Usuário',
-            event_name: event.nome,
-            type: 'inscricao'
-          });
-        } catch (emailError) {
-          console.warn('Erro ao enviar email:', emailError);
-        }
-      }
+      // Email é enviado automaticamente pelo inscricoes-service
 
     } catch (err: any) {
       setSubscriptionError(err.message || 'Falha ao se inscrever.');

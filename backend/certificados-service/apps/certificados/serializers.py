@@ -16,8 +16,9 @@ class CertificadoSerializer(serializers.ModelSerializer):
             'participante_email',
             'evento_nome',
             'arquivo_pdf',
+            'template_html',
             'gerado',
-            'enviado',
+            'disponivel_usuario',
             'created_at',
             'updated_at',
         ]

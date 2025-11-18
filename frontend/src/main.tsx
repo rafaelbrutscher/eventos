@@ -21,6 +21,8 @@ import { ValidacaoCertificado } from './pages/ValidacaoCertificado.tsx';
 import { Register } from './pages/Register.tsx';
 import { MeuPerfil } from './pages/MeuPerfil.tsx';
 import { CheckIn } from './pages/Checkin.tsx';
+import { CompletarCadastro } from './pages/CompletarCadastro.tsx';
+import { CadastroRapido } from './pages/CadastroRapido.tsx';
 
 import { ProtectedRoute as RoleProtectedRoute } from './components/ProtectedRoute.tsx';
 
@@ -37,6 +39,14 @@ const router = createBrowserRouter([
       {
         path: '/register',
         element: <Register />,
+      },
+      {
+        path: '/validar-certificado',
+        element: <ValidacaoCertificado />,
+      },
+      {
+        path: '/completar-cadastro',
+        element: <CompletarCadastro />,
       },
       // Todas as outras rotas são protegidas
       {
@@ -71,10 +81,10 @@ const router = createBrowserRouter([
             ),
           },
           {
-            path: '/validar-certificado',
+            path: '/cadastro-rapido',
             element: (
-              <RoleProtectedRoute requiredRoles={['admin', 'atendente']}>
-                <ValidacaoCertificado />
+              <RoleProtectedRoute requireCheckInAccess={true}>
+                <CadastroRapido />
               </RoleProtectedRoute>
             ),
           },

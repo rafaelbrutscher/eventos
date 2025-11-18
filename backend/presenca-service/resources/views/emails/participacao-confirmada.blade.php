@@ -57,7 +57,7 @@
     </div>
 
     <div class="content">
-        <p>Parabéns <strong>{{ $usuario['nome'] }}</strong>!</p>
+        <p>Parabéns <strong>{{ $usuario['name'] }}</strong>!</p>
 
         <p>Sua participação no evento foi registrada com sucesso. Você agora está elegível para receber o certificado de participação!</p>
 

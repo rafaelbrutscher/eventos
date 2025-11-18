@@ -21,7 +21,7 @@ class AuthService
     public function validateUser(int $usuarioId): array
     {
         try {
-            $response = Http::timeout(10)->get("{$this->baseUrl}/api/usuarios/{$usuarioId}");
+            $response = Http::timeout(30)->get("{$this->baseUrl}/api/usuarios/{$usuarioId}");
 
             if ($response->successful()) {
                 $data = $response->json();

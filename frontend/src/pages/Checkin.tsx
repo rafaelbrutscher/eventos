@@ -37,12 +37,12 @@ export function CheckIn() {
         try {
           const response = await getListaPresencaEvento(selectedEvento);
           setInscritos(response.data.inscritos);
-          
+
           // Verificar se veio do cache
           if (!navigator.onLine) {
-            setMessage({ 
-              type: 'warning', 
-              text: 'Dados carregados do cache offline. Pode não estar atualizado.' 
+            setMessage({
+              type: 'warning',
+              text: 'Dados carregados do cache offline. Pode não estar atualizado.'
             });
           }
         } catch (error: any) {
@@ -66,24 +66,24 @@ export function CheckIn() {
     try {
       const resultado = await realizarCheckin({
         inscricao_id: inscrito.inscricao_id,
-        evento_id: selectedEvento,
-        tipo: navigator.onLine ? 'online' : 'offline'
+        evento_id: selectedEvento
+        // Não precisa especificar tipo - o service decide automaticamente
       });
 
       if (resultado.success) {
         // Atualizar lista local
-        setInscritos(prev => prev.map(item => 
-          item.inscricao_id === inscrito.inscricao_id 
+        setInscritos(prev => prev.map(item =>
+          item.inscricao_id === inscrito.inscricao_id
             ? { ...item, ja_tem_presenca: true }
             : item
         ));
 
         const isOffline = !navigator.onLine || resultado.data?.origem === 'offline';
-        setMessage({ 
-          type: isOffline ? 'warning' : 'success', 
-          text: isOffline 
-            ? 'Check-in salvo offline. Será sincronizado quando houver internet.' 
-            : 'Check-in realizado com sucesso!' 
+        setMessage({
+          type: isOffline ? 'warning' : 'success',
+          text: isOffline
+            ? 'Check-in salvo offline. Será sincronizado quando houver internet.'
+            : 'Check-in realizado com sucesso!'
         });
       }
     } catch (error: any) {
@@ -117,8 +117,8 @@ export function CheckIn() {
         {/* Mensagem de feedback */}
         {message && (
           <div className={`mb-4 p-4 rounded-md ${
-            message.type === 'success' 
-              ? 'bg-green-100 border border-green-400 text-green-700' 
+            message.type === 'success'
+              ? 'bg-green-100 border border-green-400 text-green-700'
               : 'bg-red-100 border border-red-400 text-red-700'
           }`}>
             {message.text}

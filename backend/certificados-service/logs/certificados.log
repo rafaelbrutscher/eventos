@@ -1,1 +1,247 @@
 INFO 2025-11-15 16:03:07,076 autoreload 19532 488 Watching for file changes with StatReloader
+INFO 2025-11-16 23:08:03,134 autoreload 19264 20884 Watching for file changes with StatReloader
+INFO 2025-11-16 23:14:05,669 basehttp 19264 2812 "OPTIONS /api/emails HTTP/1.1" 200 0
+WARNING 2025-11-16 23:14:05,733 log 19264 2812 Not Found: /api/emails
+WARNING 2025-11-16 23:14:05,734 basehttp 19264 2812 "POST /api/emails HTTP/1.1" 404 4936
+WARNING 2025-11-16 23:15:48,684 log 19264 2812 Not Found: /api/emails
+WARNING 2025-11-16 23:15:48,685 basehttp 19264 2812 "POST /api/emails HTTP/1.1" 404 4936
+WARNING 2025-11-16 23:15:59,100 log 19264 2812 Not Found: /api/emails
+WARNING 2025-11-16 23:15:59,100 basehttp 19264 2812 "POST /api/emails HTTP/1.1" 404 4936
+INFO 2025-11-16 23:17:05,497 basehttp 19264 26060 "GET /api/certificados/ HTTP/1.1" 200 52
+ERROR 2025-11-16 23:17:18,753 log 19264 26060 Internal Server Error: /api/certificados/
+Traceback (most recent call last):
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\backends\mysql\base.py", line 76, in execute
+    return self.cursor.execute(query, args)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\cursors.py", line 153, in execute
+    result = self._query(query)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\cursors.py", line 322, in _query
+    conn.query(q)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\connections.py", line 558, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\connections.py", line 822, in _read_query_result
+    result.read()
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\connections.py", line 1200, in read
+    first_packet = self.connection._read_packet()
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\connections.py", line 772, in _read_packet
+    packet.raise_for_error()
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\protocol.py", line 221, in raise_for_error
+    err.raise_mysql_exception(self._data)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\err.py", line 143, in raise_mysql_exception
+    raise errorclass(errno, errval)
+pymysql.err.DataError: (1406, "Data too long for column 'codigo_validacao' at row 1")
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\views\decorators\csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\rest_framework\viewsets.py", line 124, in view
+    return self.dispatch(request, *args, **kwargs)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\rest_framework\views.py", line 509, in dispatch
+    response = self.handle_exception(exc)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\rest_framework\views.py", line 469, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\rest_framework\views.py", line 480, in raise_uncaught_exception
+    raise exc
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\rest_framework\views.py", line 506, in dispatch
+    response = handler(request, *args, **kwargs)
+  File "C:\laragon\www\eventos\backend\certificados-service\apps\certificados\views.py", line 121, in create
+    response = super().create(request, *args, **kwargs)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\rest_framework\mixins.py", line 19, in create
+    self.perform_create(serializer)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\rest_framework\mixins.py", line 24, in perform_create
+    serializer.save()
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\rest_framework\serializers.py", line 208, in save
+    self.instance = self.create(validated_data)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\rest_framework\serializers.py", line 989, in create
+    instance = ModelClass._default_manager.create(**validated_data)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\models\query.py", line 679, in create
+    obj.save(force_insert=True, using=self.db)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\models\base.py", line 822, in save
+    self.save_base(
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\models\base.py", line 909, in save_base
+    updated = self._save_table(
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\models\base.py", line 1071, in _save_table
+    results = self._do_insert(
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\models\base.py", line 1112, in _do_insert
+    return manager._insert(
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\models\query.py", line 1847, in _insert
+    return query.get_compiler(using=using).execute_sql(returning_fields)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\models\sql\compiler.py", line 1823, in execute_sql
+    cursor.execute(sql, params)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\django\db\backends\mysql\base.py", line 76, in execute
+    return self.cursor.execute(query, args)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\cursors.py", line 153, in execute
+    result = self._query(query)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\cursors.py", line 322, in _query
+    conn.query(q)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\connections.py", line 558, in query
+    self._affected_rows = self._read_query_result(unbuffered=unbuffered)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\connections.py", line 822, in _read_query_result
+    result.read()
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\connections.py", line 1200, in read
+    first_packet = self.connection._read_packet()
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\connections.py", line 772, in _read_packet
+    packet.raise_for_error()
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\protocol.py", line 221, in raise_for_error
+    err.raise_mysql_exception(self._data)
+  File "C:\laragon\bin\python\python-3.10\lib\site-packages\pymysql\err.py", line 143, in raise_mysql_exception
+    raise errorclass(errno, errval)
+django.db.utils.DataError: (1406, "Data too long for column 'codigo_validacao' at row 1")
+ERROR 2025-11-16 23:17:18,759 basehttp 19264 26060 "POST /api/certificados/ HTTP/1.1" 500 27988
+INFO 2025-11-16 23:17:44,878 autoreload 19264 20884 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\models.py changed, reloading.
+INFO 2025-11-16 23:17:45,845 autoreload 3508 432 Watching for file changes with StatReloader
+INFO 2025-11-16 23:18:03,549 autoreload 3508 432 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\models.py changed, reloading.
+INFO 2025-11-16 23:18:04,249 autoreload 9804 21212 Watching for file changes with StatReloader
+INFO 2025-11-16 23:18:10,108 autoreload 9804 21212 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\models.py changed, reloading.
+INFO 2025-11-16 23:18:10,814 autoreload 19816 12064 Watching for file changes with StatReloader
+ERROR 2025-11-16 23:18:40,902 views 19816 30584 Erro ao enviar certificado por email: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials a92af1059eb24-11b060885d8sm45108239c88.2 - gsmtp')
+INFO 2025-11-16 23:18:40,904 basehttp 19816 30584 "POST /api/certificados/ HTTP/1.1" 201 346
+ERROR 2025-11-16 23:19:23,016 views 19816 30584 Erro ao enviar certificado por email: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials a92af1059eb24-11b80fd6790sm21247866c88.10 - gsmtp')
+ERROR 2025-11-16 23:19:23,016 log 19816 30584 Internal Server Error: /api/certificados/1/enviar-email/
+ERROR 2025-11-16 23:19:23,016 basehttp 19816 30584 "POST /api/certificados/1/enviar-email/ HTTP/1.1" 500 48
+ERROR 2025-11-16 23:19:35,764 views 17872 10928 Erro ao enviar certificado por email: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials a92af1059eb24-11b0608860fsm35179087c88.5 - gsmtp')
+INFO 2025-11-16 23:20:02,682 autoreload 1560 18368 Watching for file changes with StatReloader
+INFO 2025-11-16 23:20:46,846 autoreload 20032 30340 Watching for file changes with StatReloader
+INFO 2025-11-16 23:20:54,086 basehttp 20032 30156 "GET /api/certificados/ HTTP/1.1" 200 398
+ERROR 2025-11-16 23:21:15,833 views 20032 30156 Erro ao enviar certificado por email: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials 5a478bee46e88-2a49db4a36asm31801045eec.5 - gsmtp')
+ERROR 2025-11-16 23:21:15,833 log 20032 30156 Internal Server Error: /api/certificados/1/enviar-email/
+ERROR 2025-11-16 23:21:15,833 basehttp 20032 30156 "POST /api/certificados/1/enviar-email/ HTTP/1.1" 500 48
+INFO 2025-11-16 23:21:26,475 autoreload 15624 24500 Watching for file changes with StatReloader
+WARNING 2025-11-16 23:22:35,636 log 15624 29616 Not Found: /api/emails
+WARNING 2025-11-16 23:22:35,636 basehttp 15624 29616 "POST /api/emails HTTP/1.1" 404 4936
+INFO 2025-11-16 23:24:06,513 autoreload 23440 30552 Watching for file changes with StatReloader
+INFO 2025-11-16 23:24:32,942 autoreload 30212 4432 Watching for file changes with StatReloader
+INFO 2025-11-16 23:25:44,191 autoreload 30212 4432 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\models.py changed, reloading.
+INFO 2025-11-16 23:25:45,001 autoreload 31740 25424 Watching for file changes with StatReloader
+INFO 2025-11-16 23:44:23,234 autoreload 28404 25152 Watching for file changes with StatReloader
+INFO 2025-11-16 23:44:44,842 basehttp 31740 14224 "GET /api/certificados/validar/teste123 HTTP/1.1" 301 0
+WARNING 2025-11-16 23:44:44,852 log 31740 12144 Not Found: /api/certificados/validar/teste123/
+WARNING 2025-11-16 23:44:44,852 basehttp 31740 12144 "GET /api/certificados/validar/teste123/ HTTP/1.1" 404 90
+INFO 2025-11-16 23:47:06,923 autoreload 31740 25424 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\models.py changed, reloading.
+INFO 2025-11-16 23:47:07,639 autoreload 5068 26136 Watching for file changes with StatReloader
+INFO 2025-11-16 23:47:16,154 autoreload 5068 26136 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\models.py changed, reloading.
+INFO 2025-11-16 23:47:17,029 autoreload 26944 2572 Watching for file changes with StatReloader
+INFO 2025-11-16 23:48:41,085 autoreload 26944 2572 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\models.py changed, reloading.
+INFO 2025-11-16 23:48:41,746 autoreload 5612 14920 Watching for file changes with StatReloader
+ERROR 2025-11-16 23:50:33,810 gerar_certificados 10156 31516 Erro ao buscar eventos finalizados: can't compare offset-naive and offset-aware datetimes
+WARNING 2025-11-16 23:51:18,495 gerar_certificados 29252 6216 Erro ao parsear data do evento 1: unconverted data remains:  23:12:11
+WARNING 2025-11-16 23:51:58,237 gerar_certificados 1952 12144 Erro ao parsear data do evento 1: unconverted data remains:  23:12:11
+WARNING 2025-11-16 23:52:08,429 gerar_certificados 1952 12144 Erro ao parsear data do evento 1: unconverted data remains:  23:12:11
+INFO 2025-11-17 20:40:25,279 autoreload 17668 22908 Watching for file changes with StatReloader
+INFO 2025-11-17 21:06:29,313 autoreload 16836 24672 Watching for file changes with StatReloader
+INFO 2025-11-17 21:16:38,428 autoreload 22516 16408 Watching for file changes with StatReloader
+INFO 2025-11-17 21:24:59,899 autoreload 33360 15440 Watching for file changes with StatReloader
+INFO 2025-11-17 21:27:30,161 autoreload 29492 18380 Watching for file changes with StatReloader
+WARNING 2025-11-17 21:27:51,411 log 33360 19520 Not Found: /api/presencas
+WARNING 2025-11-17 21:27:51,412 basehttp 33360 19520 "GET /api/presencas?evento_id=1 HTTP/1.1" 404 4956
+ERROR 2025-11-17 21:30:35,398 views 7828 27180 Erro ao enviar certificado por email: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials 5a478bee46e88-2a49da0662dsm52696598eec.2 - gsmtp')
+ERROR 2025-11-17 21:30:37,266 views 7828 27180 Erro ao enviar certificado por email: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials a92af1059eb24-11b80fd6790sm28686437c88.10 - gsmtp')
+INFO 2025-11-17 21:33:04,998 autoreload 33360 15440 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\models.py changed, reloading.
+INFO 2025-11-17 21:33:05,713 autoreload 33384 22624 Watching for file changes with StatReloader
+INFO 2025-11-17 21:33:35,354 autoreload 33384 22624 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\views.py changed, reloading.
+INFO 2025-11-17 21:33:36,111 autoreload 32920 15332 Watching for file changes with StatReloader
+INFO 2025-11-17 21:35:26,363 autoreload 32920 15332 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\models.py changed, reloading.
+INFO 2025-11-17 21:35:27,523 autoreload 22088 6032 Watching for file changes with StatReloader
+INFO 2025-11-17 21:36:47,562 autoreload 22088 6032 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\admin.py changed, reloading.
+INFO 2025-11-17 21:36:48,471 autoreload 15840 3728 Watching for file changes with StatReloader
+INFO 2025-11-17 21:36:57,066 autoreload 15840 3728 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\serializers.py changed, reloading.
+INFO 2025-11-17 21:36:57,721 autoreload 27696 19952 Watching for file changes with StatReloader
+INFO 2025-11-17 21:37:10,463 autoreload 27696 19952 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\urls.py changed, reloading.
+INFO 2025-11-17 21:37:11,145 autoreload 33412 2696 Watching for file changes with StatReloader
+INFO 2025-11-17 21:37:48,897 autoreload 33412 2696 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\views.py changed, reloading.
+INFO 2025-11-17 21:37:49,557 autoreload 13880 30944 Watching for file changes with StatReloader
+INFO 2025-11-17 21:38:12,428 basehttp 13880 4748 "GET /api/meus-eventos/?user_id=4 HTTP/1.1" 200 36
+INFO 2025-11-17 21:40:13,508 basehttp 13880 18836 "GET /api/meus-eventos/?user_id=3 HTTP/1.1" 200 326
+INFO 2025-11-17 21:40:20,302 basehttp 13880 18836 "POST /api/gerar-certificado/ HTTP/1.1" 200 278
+ERROR 2025-11-17 21:40:25,283 views 13880 18836 Erro ao gerar certificado: 'nome'
+ERROR 2025-11-17 21:40:25,283 log 13880 18836 Internal Server Error: /api/certificados/2/download/
+ERROR 2025-11-17 21:40:25,283 basehttp 13880 18836 "GET /api/certificados/2/download/ HTTP/1.1" 500 43
+INFO 2025-11-17 21:40:40,664 autoreload 13880 30944 C:\laragon\www\eventos\backend\certificados-service\apps\core\utils.py changed, reloading.
+INFO 2025-11-17 21:40:41,418 autoreload 11144 14808 Watching for file changes with StatReloader
+INFO 2025-11-17 21:40:48,180 basehttp 11144 22756 "GET /api/certificados/2/download/ HTTP/1.1" 200 7206
+INFO 2025-11-17 21:41:06,997 basehttp 11144 22756 "GET /api/certificados/validar/5fe0dbfa60c74569a89d6568eb2b7830/ HTTP/1.1" 200 145
+INFO 2025-11-17 21:44:29,060 autoreload 11144 14808 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\views.py changed, reloading.
+INFO 2025-11-17 21:44:29,979 autoreload 25240 10656 Watching for file changes with StatReloader
+INFO 2025-11-17 21:46:22,611 autoreload 6856 27136 Watching for file changes with StatReloader
+INFO 2025-11-17 21:49:04,696 autoreload 25240 10656 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\views.py changed, reloading.
+INFO 2025-11-17 21:49:05,417 autoreload 13788 13860 Watching for file changes with StatReloader
+ERROR 2025-11-17 21:49:17,289 views 13788 16992 Erro ao gerar certificado: name 'datetime' is not defined
+INFO 2025-11-17 21:49:17,290 basehttp 13788 16992 "GET /api/certificados/2/download/?id=7bc2ae7c-85ae-4676-b3d4-ca1ce671a518&vscodeBrowserReqId=1763426956084 HTTP/1.1" 200 71
+INFO 2025-11-17 21:50:23,346 autoreload 13788 13860 C:\laragon\www\eventos\backend\certificados-service\apps\certificados\views.py changed, reloading.
+INFO 2025-11-17 21:50:24,088 autoreload 29428 2928 Watching for file changes with StatReloader
+INFO 2025-11-17 21:50:34,344 basehttp 29428 17632 "GET /api/certificados/2/download/?id=1f9476c4-9119-4467-bc5e-0d536217e2e7&vscodeBrowserReqId=1763427033704 HTTP/1.1" 200 7206
+INFO 2025-11-17 21:50:52,625 basehttp 29428 17632 "GET /api/certificados/2/download/?id=1f9476c4-9119-4467-bc5e-0d536217e2e7&vscodeBrowserReqId=1763427052200 HTTP/1.1" 200 8059
+INFO 2025-11-17 21:50:57,872 autoreload 29428 2928 C:\laragon\www\eventos\backend\certificados-service\apps\core\utils.py changed, reloading.
+INFO 2025-11-17 21:50:58,702 autoreload 33720 488 Watching for file changes with StatReloader
+INFO 2025-11-17 21:53:30,381 basehttp 33720 12464 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 311
+INFO 2025-11-17 21:53:46,065 basehttp 33720 12464 "POST /api/gerar-certificado/ HTTP/1.1" 200 286
+INFO 2025-11-17 21:53:50,945 basehttp 33720 32520 "GET /api/certificados/4/download/?id=3b24f8d1-18f7-440d-b21a-0c7f12e0a32c&vscodeBrowserReqId=1763427230278 HTTP/1.1" 200 8091
+INFO 2025-11-17 21:54:46,852 basehttp 33720 31792 "OPTIONS /api/meus-eventos/?user_id=1 HTTP/1.1" 200 0
+INFO 2025-11-17 21:54:47,201 basehttp 33720 31792 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 21:54:55,199 basehttp 33720 31792 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 21:55:03,152 basehttp 33720 31792 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 21:55:10,134 basehttp 33720 31792 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 21:55:17,137 basehttp 33720 31792 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 21:55:45,822 basehttp 33720 13996 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 21:55:52,171 basehttp 33720 31792 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 21:55:52,431 basehttp 33720 32324 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 21:55:59,210 basehttp 33720 32324 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 21:56:07,167 basehttp 33720 32324 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 21:56:18,569 basehttp 33720 9716 "GET /api/certificados/4/download/ HTTP/1.1" 200 8091
+WARNING 2025-11-17 21:56:18,785 log 33720 9716 Not Found: /favicon.ico
+WARNING 2025-11-17 21:56:18,786 basehttp 33720 9716 "GET /favicon.ico HTTP/1.1" 404 3010
+INFO 2025-11-17 21:56:32,054 basehttp 33720 9716 "GET /api/certificados/validar/70cb7ed947ee4c629b0fdd93885c2256 HTTP/1.1" 301 0
+INFO 2025-11-17 21:56:32,062 basehttp 33720 19912 "GET /api/certificados/validar/70cb7ed947ee4c629b0fdd93885c2256/ HTTP/1.1" 200 166
+INFO 2025-11-17 21:57:20,638 autoreload 33720 488 C:\laragon\www\eventos\backend\certificados-service\apps\core\utils.py changed, reloading.
+INFO 2025-11-17 21:57:21,396 autoreload 14868 15780 Watching for file changes with StatReloader
+INFO 2025-11-17 21:57:52,463 basehttp 14868 19416 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 21:57:52,789 basehttp 14868 4528 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 21:57:59,331 basehttp 14868 4528 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 21:57:59,703 basehttp 14868 19416 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 21:58:26,322 basehttp 14868 16776 "GET /api/certificados/4/download/?id=1794bfdd-a002-4ef6-8dca-adb5c3978466&vscodeBrowserReqId=1763427505609 HTTP/1.1" 200 8158
+INFO 2025-11-17 21:59:09,022 basehttp 14868 7560 "GET /api/certificados/4/download/ HTTP/1.1" 200 8158
+INFO 2025-11-17 21:59:28,241 basehttp 14868 19416 "GET /api/certificados/validar/70CB7ED947EE4C629B0FDD93885C2256 HTTP/1.1" 301 0
+INFO 2025-11-17 21:59:28,272 basehttp 14868 4528 "GET /api/certificados/validar/70CB7ED947EE4C629B0FDD93885C2256/ HTTP/1.1" 200 166
+INFO 2025-11-17 22:07:30,443 basehttp 14868 26936 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 22:07:30,743 basehttp 14868 9104 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 22:07:35,314 basehttp 14868 9104 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 22:07:35,592 basehttp 14868 26936 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 22:08:15,316 basehttp 14868 26936 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 22:08:15,596 basehttp 14868 9104 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 22:08:22,389 basehttp 14868 9104 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 22:08:22,656 basehttp 14868 26936 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 22:09:44,648 basehttp 14868 26936 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 22:09:44,908 basehttp 14868 9104 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 22:10:10,376 basehttp 14868 9104 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 22:10:10,633 basehttp 14868 26936 "GET /api/meus-eventos/?user_id=1 HTTP/1.1" 200 337
+INFO 2025-11-17 22:48:39,384 autoreload 14868 15780 C:\laragon\www\eventos\backend\certificados-service\apps\core\utils.py changed, reloading.
+INFO 2025-11-17 22:48:40,238 autoreload 28024 31496 Watching for file changes with StatReloader
+INFO 2025-11-17 23:29:54,920 autoreload 23636 25664 Watching for file changes with StatReloader
+INFO 2025-11-18 07:45:44,682 autoreload 33800 10912 Watching for file changes with StatReloader
+INFO 2025-11-18 07:46:16,090 autoreload 25104 34324 Watching for file changes with StatReloader
+INFO 2025-11-18 07:54:59,051 autoreload 11196 18748 Watching for file changes with StatReloader
+INFO 2025-11-18 07:57:05,762 autoreload 14084 7348 Watching for file changes with StatReloader
+INFO 2025-11-18 08:05:15,391 autoreload 34332 25752 Watching for file changes with StatReloader

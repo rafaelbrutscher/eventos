@@ -23,6 +23,8 @@ class User extends Authenticatable implements JWTSubject
         'email',
         'password',
         'role',
+        'cadastro_completo',
+        'cadastro_rapido_em',
     ];
 
     /**
@@ -45,6 +47,8 @@ class User extends Authenticatable implements JWTSubject
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'cadastro_completo' => 'boolean',
+            'cadastro_rapido_em' => 'datetime',
         ];
     }
 
@@ -102,5 +106,24 @@ class User extends Authenticatable implements JWTSubject
     public function canCheckIn()
     {
         return in_array($this->role, ['atendente', 'admin']);
+    }
+
+    /**
+     * Verifica se o usuário tem cadastro incompleto
+     */
+    public function isCadastroIncompleto()
+    {
+        return !$this->cadastro_completo;
+    }
+
+    /**
+     * Marca o cadastro como completo
+     */
+    public function completarCadastro()
+    {
+        $this->update([
+            'cadastro_completo' => true,
+            'cadastro_rapido_em' => null,
+        ]);
     }
 }

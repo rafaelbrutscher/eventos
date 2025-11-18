@@ -59,22 +59,31 @@ export function ValidacaoCertificado() {
   return (
     <div className={styles.loginContainer}>
       <form onSubmit={handleSubmit} className={styles.loginForm}>
-        <h1>Validação de Certificado</h1>
-        <p style={{ textAlign: 'center', marginTop: '-1rem' }}>
-          Insira o código de autenticação impresso no documento.
-        </p>
+        <h1>🔍 Validação de Certificado</h1>
+        <div style={{ textAlign: 'left', marginTop: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px', fontSize: '14px' }}>
+          <p><strong>Como validar seu certificado:</strong></p>
+          <ol style={{ margin: '0.5rem 0', paddingLeft: '1.2rem' }}>
+            <li>Localize o código de validação impresso no certificado</li>
+            <li>Digite o código exato no campo abaixo</li>
+            <li>Clique em "Validar" para verificar a autenticidade</li>
+          </ol>
+          <p style={{ margin: '0.5rem 0 0 0', color: '#666' }}>
+            <em>O código geralmente está no rodapé do documento.</em>
+          </p>
+        </div>
 
         <div className={styles.inputGroup}>
-          <label htmlFor="codigo">Código:</label>
+          <label htmlFor="codigo">Código de Validação:</label>
           <input
             type="text"
             id="codigo"
             value={codigo}
-            onChange={(e) => setCodigo(e.target.value.trim())}
-            placeholder="Ex: ABC-123-DEF ou 123456789"
+            onChange={(e) => setCodigo(e.target.value.trim().toUpperCase())}
+            placeholder="Ex: 5FE0DBFA60C74569A89D6568EB2B7830"
             disabled={loading}
             required
             maxLength={50}
+            style={{ fontFamily: 'monospace', fontSize: '16px' }}
           />
         </div>
 
@@ -84,9 +93,15 @@ export function ValidacaoCertificado() {
           {loading ? 'Validando...' : 'Validar'}
         </button>
 
-        <Link to="/login" style={{ textAlign: 'center', color: '#fff', marginTop: '1rem' }}>
-          Voltar para o Login
-        </Link>
+        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+          <Link to="/login" style={{ color: '#fff', textDecoration: 'none' }}>
+            Voltar para o Login
+          </Link>
+          <span style={{ color: '#fff', margin: '0 1rem' }}>•</span>
+          <Link to="/" style={{ color: '#fff', textDecoration: 'none' }}>
+            Página Principal
+          </Link>
+        </div>
       </form>
 
       {renderResultado()}
