@@ -1,7 +1,7 @@
 // /src/pages/CheckIn.tsx
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getListaPresencaEvento, realizarCheckin, type Inscrito } from '../services/presencaService';
+import { getListaPresencaEvento, realizarCheckin, limparDadosOffline, type Inscrito } from '../services/presencaService';
 import { getEvents } from '../services/eventService';
 import { OfflineStatus } from '../components/OfflineStatus';
 
@@ -20,6 +20,17 @@ export function CheckIn() {
       try {
         const data = await getEvents();
         setEventos(data);
+        
+        if (navigator.onLine && data.length > 0) {
+          data.forEach(async (evento: any) => {
+            try {
+              await getListaPresencaEvento(evento.id);
+              console.log(`Cache salvo para evento: ${evento.nome}`);
+            } catch (error) {
+              console.log(`Erro ao pré-carregar evento ${evento.nome}:`, error);
+            }
+          });
+        }
       } catch (error) {
         console.error('Erro ao carregar eventos:', error);
         setMessage({ type: 'error', text: 'Erro ao carregar eventos' });
@@ -34,20 +45,30 @@ export function CheckIn() {
     if (selectedEvento) {
       const fetchInscritos = async () => {
         setLoading(true);
+        
         try {
           const response = await getListaPresencaEvento(selectedEvento);
+          
           setInscritos(response.data.inscritos);
 
           // Verificar se veio do cache
           if (!navigator.onLine) {
             setMessage({
               type: 'warning',
-              text: 'Dados carregados do cache offline. Pode não estar atualizado.'
+              text: `Dados carregados do cache offline (${response.data.inscritos.length} participantes). Pode não estar atualizado.`
             });
+          } else {
+            setMessage({
+              type: 'success',
+              text: `Lista carregada com sucesso! ${response.data.inscritos.length} participantes encontrados.`
+            });
+            setTimeout(() => setMessage(null), 3000);
           }
-        } catch (error: any) {
-          console.error('Erro ao carregar inscritos:', error);
-          setMessage({ type: 'error', text: error.message || 'Erro ao carregar lista de presença' });
+        } catch (error: any) {          
+          setMessage({ 
+            type: 'error', 
+            text: `Erro ao carregar lista: ${error.message || 'Erro desconhecido'}. ${!navigator.onLine ? 'Verifique se há dados em cache.' : 'Verifique a conexão.'}`
+          });
         } finally {
           setLoading(false);
         }
@@ -119,17 +140,40 @@ export function CheckIn() {
           <div className={`mb-4 p-4 rounded-md ${
             message.type === 'success'
               ? 'bg-green-100 border border-green-400 text-green-700'
+              : message.type === 'warning'
+              ? 'bg-yellow-100 border border-yellow-400 text-yellow-700'
               : 'bg-red-100 border border-red-400 text-red-700'
           }`}>
-            {message.text}
+            <div className="flex items-start gap-2">
+              <span className="text-lg">
+                {message.type === 'success' ? '✅' : message.type === 'warning' ? '⚠️' : '❌'}
+              </span>
+              <span>{message.text}</span>
+            </div>
           </div>
         )}
 
         {/* Seleção de evento */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Selecione o Evento:
-          </label>
+          <div className="flex justify-between items-end mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Selecione o Evento:
+            </label>
+            {selectedEvento && (
+              <button
+                onClick={() => {
+                  setInscritos([]);
+                  setMessage(null);
+                  const eventoId = selectedEvento;
+                  setSelectedEvento(null);
+                  setTimeout(() => setSelectedEvento(eventoId), 100);
+                }}
+                className="text-sm bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+              >
+                🔄 Recarregar Lista
+              </button>
+            )}
+          </div>
           <select
             value={selectedEvento || ''}
             onChange={(e) => setSelectedEvento(e.target.value ? Number(e.target.value) : null)}
@@ -160,12 +204,12 @@ export function CheckIn() {
           </div>
         )}
 
-        {/* Lista de participantes */}
         {selectedEvento && (
           <div>
             <h2 className="text-xl font-semibold text-gray-800 mb-4">
               Participantes Inscritos ({inscritosFiltrados.length})
             </h2>
+            
 
             {loading ? (
               <div className="flex justify-center py-8">
