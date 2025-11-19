@@ -71,7 +71,6 @@ export const getEventosConcluidos = async (): Promise<EventoConcluido[]> => {
     
     // Verificar se há dados válidos
     if (!data || !data.data || !Array.isArray(data.data)) {
-      console.log('Usuário não possui eventos concluídos');
       return [];
     }
     
@@ -86,16 +85,13 @@ export const getEventosConcluidos = async (): Promise<EventoConcluido[]> => {
       certificado_codigo: evento.certificado_codigo
     }));
   } catch (error: any) {
-    console.log("Erro ao buscar eventos concluídos:", error.response?.data || error.message);
     
     // Tratar erros específicos
     if (error.code === 'ERR_NETWORK' || error.code === 'NETWORK_ERROR') {
-      console.log('Serviço de certificados indisponível, retornando lista vazia');
       return [];
     }
     
     if (error.response?.status === 404 || error.message?.includes('ERR_EMPTY_RESPONSE')) {
-      console.log('Nenhum evento encontrado para o usuário');
       return [];
     }
     

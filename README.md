@@ -1,526 +1,339 @@
-# 🎉 Sistema de Gestão de Eventos
+# Sistema de Gestão de Eventos
 
-Sistema completo de gestão de eventos com arquitetura de microserviços, desenvolvido em Laravel (backend) e React (frontend). Suporte completo para Docker.
+Sistema completo de gestão de eventos com arquitetura de microserviços, desenvolvido em Laravel (backend) e React (frontend).
 
-## 🏗️ Arquitetura
+## 1. Arquitetura do Sistema
 
-### Microserviços
-- **auth-service** (Porta 8001): Autenticação e autorização JWT
-- **eventos-service** (Porta 8002): Gestão de eventos
-- **inscricoes-service** (Porta 8003): Sistema de inscrições
-- **presenca-service** (Porta 8004): Controle de presença com funcionalidade offline
-- **certificados-service** (Porta 8005): Geração automática de certificados em Python/Django
+### Modelo Arquitetural
 
-### Frontend
-- **React SPA** (Porta 3000): Interface do usuário com suporte offline
-- **Acesso Direto**: Cada serviço disponível em sua porta específica
-
-## 🚀 Tecnologias
-
-### Backend
-- **Framework**: Laravel 12.0 (PHP 8.2) + Django 5.0 (Python 3.11)
-- **Autenticação**: JWT (php-open-source-saver/jwt-auth)
-- **Banco de Dados**: MySQL 8.0 (compartilhado por todos os serviços)
-- **Cache/Filas**: Redis 7
-- **Geração PDF**: WeasyPrint
-- **Task Queue**: Celery
-
-### Frontend
-- **Framework**: React 18 + TypeScript
-- **Build Tool**: Vite
-- **HTTP Client**: Axios
-- **Funcionalidade Offline**: Service Workers + localStorage
-
-### Infraestrutura
-- **Containerização**: Docker + Docker Compose
-- **Acesso**: Direto por portas específicas
-- **Cache/Queue**: Redis
-
-## 🐳 Instalação com Docker (Recomendado)
-
-### 1. Pré-requisitos
-- Docker 20.10+
-- Docker Compose 2.0+
-- 4GB RAM mínimo
-
-### 2. Clone e Execute
-```bash
-git clone [url-do-repositorio]
-cd eventos
-
-# Iniciar todos os serviços
-docker-compose up -d
-
-# Verificar status
-docker-compose ps
-
-# Ver logs
-docker-compose logs -f
+```
+┌─────────────────┐    ┌──────────────────────────────────────┐
+│                 │    │              FRONTEND                │
+│   USUÁRIOS      │◄──►│         React + TypeScript           │
+│                 │    │            Porta: 80                 │
+└─────────────────┘    └──────────────┬───────────────────────┘
+                                     │
+                       ┌─────────────┴───────────────┐
+                       │        API GATEWAY          │
+                       │     (Acesso Direto)         │
+                       └─┬─┬─┬─┬─┬───────────────────┘
+                         │ │ │ │ │
+          ┌──────────────┘ │ │ │ └──────────────┐
+          │                │ │ │                │
+          v                │ │ │                v
+    ┌──────────┐          │ │ │          ┌──────────┐
+    │   AUTH   │          │ │ │          │CERTIFIC. │
+    │ SERVICE  │          │ │ │          │ SERVICE  │
+    │ Laravel  │          │ │ │          │ Django   │
+    │:8001     │          │ │ │          │:8005     │
+    └──────────┘          │ │ │          └──────────┘
+                          │ │ │
+                          v │ v
+                    ┌──────────┐ ┌──────────┐
+                    │ EVENTOS  │ │PRESENÇA  │
+                    │ SERVICE  │ │ SERVICE  │
+                    │ Laravel  │ │ Laravel  │
+                    │:8002     │ │:8004     │
+                    └──────────┘ └──────────┘
+                          │
+                          v
+                    ┌──────────┐
+                    │INSCRIÇÕES│
+                    │ SERVICE  │
+                    │ Laravel  │
+                    │:8003     │
+                    └──────────┘
+                          │
+          ┌───────────────┴───────────────┐
+          │                               │
+          v                               v
+    ┌──────────┐                   ┌──────────┐
+    │  MySQL   │                   │  Redis   │
+    │ Database │                   │  Cache   │
+    │:3306     │                   │:6379     │
+    └──────────┘                   └──────────┘
 ```
 
-### 3. Executar Migrações
-```bash
-# Laravel services (banco único MySQL)
-docker-compose exec auth-service php artisan migrate
-docker-compose exec eventos-service php artisan migrate  
-docker-compose exec inscricoes-service php artisan migrate
-docker-compose exec presenca-service php artisan migrate
+### Tecnologias Utilizadas
 
-# Django service (usando MySQL compartilhado)
-docker-compose exec certificados-service python manage.py migrate
-```
+#### Backend Services
+- **Laravel 12.0**: Framework PHP para API REST
+- **Django 5.0**: Framework Python para geração de certificados
+- **PHP 8.2**: Linguagem principal dos microserviços
+- **Python 3.11**: Linguagem para processamento de PDFs
 
-### 4. Acessar Sistema
-- **Frontend**: http://177.44.248.89:3000
-- **Frontend**: http://177.44.248.89:3000
-- **Auth Service**: http://177.44.248.89:8001
-- **Eventos Service**: http://177.44.248.89:8002
-- **Inscrições Service**: http://177.44.248.89:8003
-- **Presença Service**: http://177.44.248.89:8004
-- **Certificados Service**: http://177.44.248.89:8005
+#### Frontend
+- **React 18**: Library para interface do usuário
+- **TypeScript**: Linguagem tipada para JavaScript
+- **Vite**: Build tool e dev server
+- **Axios**: Cliente HTTP para comunicação com APIs
 
-## 💻 Instalação Local (Desenvolvimento)
+#### Banco de Dados e Cache
+- **MySQL 8.0**: Banco de dados relacional compartilhado
+- **Redis 7**: Cache em memória e filas de processamento
 
-### 1. Pré-requisitos
-- PHP 8.2+
-- Python 3.11+
-- Node.js 18+
-- Composer
-- MySQL 8.0+
-- Docker & Docker Compose
-- Redis
+#### Infraestrutura
+- **Docker**: Containerização dos serviços
+- **Docker Compose**: Orquestração de containers
+- **Nginx**: Servidor web para frontend estático
 
-### 2. Configure os Microserviços Laravel
-```bash
-# Para cada serviço em backend/
-cd backend/[nome-do-servico]
-composer install
-cp .env.example .env
-php artisan key:generate
-php artisan jwt:secret
-php artisan migrate
-php artisan db:seed
-```
+#### Autenticação e Processamento
+- **JWT**: Tokens de autenticação entre serviços
+- **Celery**: Processamento assíncrono de tarefas
+- **WeasyPrint**: Geração de PDFs para certificados
 
-### 3. Configure o Serviço de Certificados
-```bash
-cd backend/certificados-service
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# ou
-.\\venv\\Scripts\\activate  # Windows
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py collectstatic
-```
+### Comunicação Entre Serviços
 
-### 4. Configure o Frontend
-```bash
-cd frontend
-npm install
-```
+Os microserviços comunicam-se através de APIs REST HTTP, utilizando o padrão de descoberta de serviços via Docker networking. Cada serviço é independente e pode ser escalado horizontalmente conforme necessário.
 
-### 5. Inicie os Serviços (Desenvolvimento Local)
-```bash
-# Para desenvolvimento local, use os comandos artisan serve
-cd backend/auth-service && php artisan serve --port=8001
-cd backend/eventos-service && php artisan serve --port=8002
-cd backend/inscricoes-service && php artisan serve --port=8003
-cd backend/presenca-service && php artisan serve --port=8004
 
-# Django Service
-cd backend/certificados-service && python manage.py runserver 8005
+## 2. Documentação da API
 
-# Celery Worker
-cd backend/certificados-service && celery -A certificados_service worker --loglevel=info
+### Endpoints por Serviço
 
-# Frontend
-cd frontend && npm run dev
-```
-
-## 🌐 API Endpoints Completos
-
-### 🔐 Auth Service (Porta 8001)
+#### Auth Service (Porta 8001)
 **Autenticação e Gestão de Usuários**
 
-#### Rotas Públicas (sem autenticação)
-- `POST /api/register` - Registrar novo usuário
-- `POST /api/login` - Login e obtenção de token JWT
-- `POST /api/completar-cadastro` - Completar cadastro incompleto
-- `POST /api/verificar-cadastro-incompleto` - Verificar se cadastro está incompleto
+##### Rotas Públicas
+```
+POST /api/register                        # Registrar novo usuário
+POST /api/login                           # Login e obtenção de token JWT
+POST /api/completar-cadastro              # Completar cadastro incompleto
+POST /api/verificar-cadastro-incompleto   # Verificar status do cadastro
+GET  /api/usuarios/{id}                   # Consultar dados de usuário (microserviços)
+```
 
-#### Rotas Protegidas (requer JWT)
-- `GET /api/usuario-logado` - Dados do usuário logado
-- `PUT /api/perfil` - Atualizar perfil do usuário
-- `POST /api/logout` - Fazer logout
-- `POST /api/refresh` - Renovar token JWT
-- `POST /api/cadastro-rapido` - Cadastro rápido (apenas atendente/admin)
-- `POST /api/sincronizar-lote` - Sincronização offline em lote (atendente/admin)
+##### Rotas Protegidas (requer JWT)
+```
+GET  /api/usuario-logado                  # Dados do usuário autenticado
+PUT  /api/perfil                          # Atualizar perfil do usuário
+POST /api/logout                          # Fazer logout
+POST /api/refresh                         # Renovar token JWT
+POST /api/cadastro-rapido                 # Cadastro rápido (atendente/admin)
+POST /api/sincronizar-lote                # Sincronização offline em lote
+```
 
-#### Rotas Inter-serviços
-- `GET /api/usuarios/{id}` - Buscar usuário por ID (para outros microserviços)
+#### Eventos Service (Porta 8002)
+**Gestão de Eventos - Somente Leitura**
 
-#### Utilitárias
-- `GET /up` - Health check do serviço
-- `GET /storage/{path}` - Servir arquivos de storage
+```
+GET /api/eventos                          # Listar todos os eventos ativos
+GET /api/eventos/{id}                     # Detalhes de um evento específico
+```
 
----
-
-### 🎪 Eventos Service (Porta 8002)
-**Gestão de Eventos - APENAS LEITURA**
-
-#### Rotas Públicas
-- `GET /api/eventos` - Listar todos os eventos ativos (data_fim >= hoje)
-- `GET /api/eventos/{id}` - Detalhes de um evento específico
-
-#### Rotas de Teste/Debug
-- `GET /test/eventos` - Rota de teste (mesma funcionalidade)
-- `GET /test/eventos/{id}` - Rota de teste para evento específico
-- `GET /teste` - Endpoint de teste básico
-
-#### Utilitárias
-- `GET /up` - Health check do serviço
-- `GET /storage/{path}` - Servir arquivos de storage
-
----
-
-### 📝 Inscrições Service (Porta 8003)
+#### Inscrições Service (Porta 8003)
 **Gestão de Inscrições em Eventos**
 
-#### Todas as rotas requerem autenticação JWT
-- `GET /api/inscricoes` - Listar inscrições do usuário logado
-- `POST /api/inscricoes` - Criar nova inscrição em evento
-- `GET /api/inscricoes/{id}` - Detalhes de uma inscrição específica
-- `DELETE /api/inscricoes/{id}` - Cancelar inscrição
-- `GET /api/inscricoes/evento/{evento_id}/check` - Verificar se usuário está inscrito
+```
+GET    /api/inscricoes                    # Listar inscrições do usuário
+POST   /api/inscricoes                    # Criar nova inscrição
+GET    /api/inscricoes/{id}               # Detalhes de uma inscrição
+DELETE /api/inscricoes/{id}               # Cancelar inscrição
+GET    /api/inscricoes/evento/{evento_id}/check  # Verificar se está inscrito
+```
 
-#### Utilitárias
-- `GET /up` - Health check do serviço
-- `GET /storage/{path}` - Servir arquivos de storage
-- `GET /test` - Endpoint de teste básico
-
----
-
-### ✅ Presença Service (Porta 8004)
+#### Presença Service (Porta 8004)
 **Controle de Check-in e Presenças**
 
-#### Rotas Restritas (JWT + Role Atendente/Admin)
-- `POST /api/check-in` - Registrar presença individual
-- `POST /api/check-in/offline-sync` - Sincronização offline de presenças em lote
-- `GET /api/eventos/{id}/lista-presenca` - Lista completa para modo offline
-
-#### Rotas Protegidas (apenas JWT)
-- `GET /api/presencas/{inscricao_id}` - Verificar se inscrito já tem presença
-
-#### Rotas Públicas (para certificados-service)
-- `GET /api/eventos/{evento_id}/presencas` - Todas as presenças de um evento
-- `GET /api/presencas/usuario/{user_id}` - Presenças de um usuário específico
-
-#### Utilitárias
-- `GET /up` - Health check do serviço
-- `GET /storage/{path}` - Servir arquivos de storage
-
----
-
-### 🏆 Certificados Service (Porta 8005)
-**Geração e Validação de Certificados - Django/Python**
-
-#### API REST (DRF ViewSet)
-- `GET /api/certificados/` - Listar certificados
-- `POST /api/certificados/` - Criar certificado
-- `GET /api/certificados/{id}/` - Detalhes de certificado
-- `PUT /api/certificados/{id}/` - Atualizar certificado
-- `DELETE /api/certificados/{id}/` - Deletar certificado
-
-#### APIs Específicas para Usuários
-- `GET /api/meus-eventos/` - Listar eventos onde usuário teve presença
-- `POST /api/gerar-certificado/` - Gerar certificado para usuário em evento
-- `GET /api/certificados/{certificado_id}/download/` - Download do PDF
-
-#### Painel Administrativo
-- `/admin/` - Interface Django Admin
-
----
-
-## 📊 Análise de Necessidade das Rotas
-
-### ✅ **Rotas Essenciais (Manter)**
-- **Auth**: Login, registro, cadastro rápido, sincronização
-- **Eventos**: Listagem e detalhes (público)  
-- **Inscrições**: CRUD completo de inscrições
-- **Presença**: Check-in com offline-sync
-- **Certificados**: Geração e download de PDFs
-
-### ⚠️ **Rotas Questionáveis (Revisar)**
-- **Eventos Service**: 
-  - `GET /test/*` - Rotas de teste duplicadas (REMOVER?)
-  - `GET /teste` - Endpoint genérico sem função (REMOVER?)
-- **Inscricoes Service**:
-  - `GET /test` - Endpoint de teste sem uso (REMOVER?)
-- **Auth Service**:
-  - `GET /` - Rota raiz sem função definida (REMOVER?)
-
-### 🔄 **Rotas Inter-serviços (Críticas)**
-- `GET /api/usuarios/{id}` (Auth) - Usada por outros serviços
-- `GET /api/eventos/{evento_id}/presencas` (Presença) - Para certificados
-- `GET /api/presencas/usuario/{user_id}` (Presença) - Para certificados
-
-### 📋 **Resumo por Funcionalidade**
-1. **Sistema Offline**: 6 rotas específicas para funcionalidade offline
-2. **CRUD Básico**: 15 rotas para operações essenciais
-3. **Health Checks**: 5 rotas `/up` para monitoramento
-4. **Testes/Debug**: 4 rotas que podem ser removidas
-5. **Inter-serviços**: 3 rotas críticas para comunicação entre services
-
----
-
-## 🧹 Recomendações de Otimização
-
-### 🗑️ **Rotas para Remover (Limpeza)**
-```bash
-# Eventos Service - Remover rotas de teste duplicadas
-GET /test/eventos          # Duplicata de /api/eventos
-GET /test/eventos/{id}     # Duplicata de /api/eventos/{id}  
-GET /teste                 # Sem funcionalidade
-
-# Inscricoes Service - Remover teste genérico
-GET /test                  # Sem funcionalidade específica
-
-# Auth Service - Remover rota raiz vazia
-GET /                      # Sem funcionalidade definida
+##### Rotas Restritas (atendente/admin)
+```
+GET  /api/eventos/{id}/lista-presenca     # Lista para modo offline
+POST /api/check-in                        # Registrar presença individual
+POST /api/check-in/offline-sync           # Sincronização offline
+POST /api/cadastro-rapido/offline-sync    # Sincronizar cadastros offline completos
 ```
 
-### ⚡ **Otimizações Sugeridas**
-1. **Consolidação**: Mover todas as rotas de teste para um controller específico
-2. **Padronização**: Todos os health checks em `/health` em vez de `/up`
-3. **Versionamento**: Adicionar `/v1/` nas rotas para futuras versões
-4. **Rate Limiting**: Implementar rate limiting nas rotas públicas
-5. **CORS**: Configurar CORS apropriadamente para cada serviço
-
-### 🏗️ **Arquitetura de Rotas Limpa**
+##### Rotas Protegidas (requer JWT)
 ```
-Auth Service (8001)     - 11 rotas (essenciais: autenticação + offline)
-Eventos Service (8002)  - 4 rotas  (essenciais: apenas leitura pública)
-Inscrições Service (8003) - 7 rotas (essenciais: CRUD de inscrições)
-Presença Service (8004) - 8 rotas  (essenciais: check-in + offline)
-Certificados (8005)     - 8 rotas  (essenciais: geração + download)
-----------------------------------------
-TOTAL: 38 rotas essenciais (atual: 42 rotas)
-REDUÇÃO: 4 rotas desnecessárias (-9.5%)
+GET /api/presencas/{inscricao_id}         # Verificar presença por inscrição
 ```
 
-### 🎯 **Próximos Passos Recomendados**
-1. Remover rotas de teste não utilizadas
-2. Implementar middleware de rate limiting
-3. Adicionar documentação Swagger/OpenAPI
-4. Configurar monitoramento de performance
-5. Implementar cache Redis nas consultas frequentes
-
-## 🎯 Funcionalidades Principais
-
-### Sistema de Autenticação
-- Registro e login de usuários
-- Autenticação JWT com refresh tokens
-- Controle de acesso por roles (participante/atendente/admin)
-- Middleware de proteção
-
-### Gestão de Eventos
-- CRUD completo de eventos
-- Upload de imagens
-- Categorização e tags
-- Controle de vagas e período de inscrições
-
-### Sistema de Inscrições
-- Inscrição online em eventos
-- Controle automático de vagas
-- Confirmação por email
-- Status em tempo real
-
-### Controle de Presença Offline-First
-- **Check-in presencial** restrito a usuários com role atendente/admin
-- **Funcionalidade offline completa** com sync automática
-- **Armazenamento local** para situações sem internet
-- **Sincronização bidirecional** quando conexão retorna
-- **Interface de status** mostrando modo offline/online
-
-### Geração Automática de Certificados
-- **Processamento assíncrono** com Celery
-- **Geração de PDFs** com WeasyPrint
-- **Templates customizáveis** em HTML/CSS
-- **Códigos de validação únicos**
-- **Envio automático por email**
-- **Sistema de validação online**
-
-## 🐳 Comandos Docker Úteis
-
-```bash
-# Gerenciamento básico
-docker-compose up -d          # Iniciar todos os serviços
-docker-compose down           # Parar todos os serviços
-docker-compose ps             # Status dos containers
-docker-compose logs -f        # Logs em tempo real
-
-# Logs específicos
-docker-compose logs auth-service
-docker-compose logs certificados-service
-
-# Executar comandos nos containers
-docker-compose exec auth-service php artisan migrate
-docker-compose exec certificados-service python manage.py createsuperuser
-
-# Rebuild containers
-docker-compose build --no-cache
-docker-compose up -d --force-recreate
-
-# Backup dos bancos
-docker-compose exec mysql mysqldump -u eventos -peventos123 eventos > backup_mysql.sql
-docker-compose exec mysql mysqldump -u eventos_user -pevents2024 --all-databases > backup_mysql.sql
+##### Rotas Públicas (para microserviços)
+```
+GET /api/eventos/{evento_id}/presencas    # Todas as presenças do evento
+GET /api/presencas/usuario/{user_id}      # Presenças de um usuário
 ```
 
-## 🔧 Monitoramento e Logs
+#### Certificados Service (Porta 8005)
+**Geração e Validação de Certificados - Django REST**
 
-### Health Checks
-Cada serviço possui endpoints de saúde:
-- Auth: http://177.44.248.89:8001/up
-- Eventos: http://177.44.248.89:8002/up
-- Inscrições: http://177.44.248.89:8003/up
-- Presença: http://177.44.248.89:8004/up
-- Certificados: http://177.44.248.89:8005/health/
-
-### Logs Docker
-```bash
-# Todos os logs
-docker-compose logs -f
-
-# Logs com timestamp
-docker-compose logs -t
-
-# Salvar logs em arquivo
-docker-compose logs > sistema-logs.txt
+##### CRUD de Certificados
+```
+GET  /api/certificados/                   # Listar certificados
+POST /api/certificados/                   # Criar certificado
+GET  /api/certificados/{id}/              # Detalhes do certificado
+PUT  /api/certificados/{id}/              # Atualizar certificado
 ```
 
-## 🛡️ Segurança e Acesso
-
-### Controle de Acesso por Roles
-- **Participante**: Pode se inscrever em eventos e visualizar próprias inscrições
-- **Atendente**: Pode fazer check-in de participantes + permissões de participante
-- **Admin**: Acesso completo a todas as funcionalidades
-
-### Middleware de Segurança
-- **CheckAtendenteRole**: Restringe check-in a atendente/admin
-- **JWT Authentication**: Protege todas as rotas da API
-- **Request Validation**: Validação rigorosa de inputs
-- **Rate Limiting**: Proteção contra ataques
-
-### Funcionalidade Offline
-- **Armazenamento seguro** em localStorage criptografado
-- **Validação local** de permissões de role
-- **Sync inteligente** que evita duplicação
-- **Fallback automático** em caso de falha de conexão
-
-## 📊 Estrutura do Banco de Dados
-
-### MySQL (Todos os Serviços Laravel)
-- **Database único**: `eventos`
-- **Tabelas por serviço**:
-  - `users` - Usuários e autenticação (auth-service)
-  - `eventos` - Dados dos eventos (eventos-service)
-  - `inscricoes` - Inscrições dos participantes (inscricoes-service)
-  - `presencas` - Registros de check-in (presenca-service)
-
-### MySQL (Compartilhado)
-- **Database**: `certificados`
-- **Tabelas**:
-  - `certificados` - Dados dos certificados gerados
-  - `eventos_processados` - Log de eventos processados
-
-## 🚀 Deploy em Produção (Docker)
-
-### Configuração Rápida
-```bash
-# 1. Clone e configure
-git clone https://github.com/rafaelbrutscher/eventos.git && cd eventos
-
-# 2. Copie configurações de produção
-cp backend/auth-service/.env.example backend/auth-service/.env
-cp backend/eventos-service/.env.example backend/eventos-service/.env  
-cp backend/inscricoes-service/.env.example backend/inscricoes-service/.env
-cp backend/presenca-service/.env.example backend/presenca-service/.env
-cp backend/certificados-service/.env.example backend/certificados-service/.env
-
-# 3. Inicie todos os serviços
-docker-compose up -d --build
-
-# 4. Execute migrações
-docker-compose exec auth-service php artisan migrate --force
-docker-compose exec eventos-service php artisan migrate --force
-docker-compose exec inscricoes-service php artisan migrate --force  
-docker-compose exec presenca-service php artisan migrate --force
-docker-compose exec certificados-service python manage.py migrate
-
-# 5. Acesse o sistema
-# Frontend: http://177.44.248.89:3000
-# Frontend: http://177.44.248.89:3000
+##### APIs para Usuários
+```
+GET  /api/meus-eventos/                   # Eventos com presença confirmada
+GET  /api/meus-certificados/              # Certificados do usuário logado
+POST /api/gerar-certificado/              # Gerar certificado para evento
+GET  /api/certificados/{id}/download/     # Download do PDF
 ```
 
-### 📋 Checklist Completo
-Veja **DEPLOY-PRODUCAO.md** para checklist detalhado de produção.
-
-### Acesso aos Serviços
-- Frontend React: http://177.44.248.89:3000
-- Auth Service: http://177.44.248.89:8001/api
-- Eventos Service: http://177.44.248.89:8002/api  
-- Inscrições Service: http://177.44.248.89:8003/api
-- Presença Service: http://177.44.248.89:8004/api
-- Certificados Service: http://177.44.248.89:8005/api
-
-## 🧪 Testes
-
-### Backend (Laravel)
-```bash
-# Local
-cd backend/[nome-do-servico]
-php artisan test
-
-# Docker
-docker-compose exec auth-service php artisan test
+##### APIs Específicas
+```
+GET  /api/certificados/validar/{codigo}/  # Validar certificado por código
+POST /api/gerar-certificado               # Geração automática (microserviços)
 ```
 
-### Frontend (React)
-```bash
-# Local
-cd frontend
-npm test
+### Padrões da API
 
-# Docker
-docker-compose exec frontend npm test
+#### Autenticação
+Todas as rotas protegidas utilizam JWT Bearer Token no header:
+```
+Authorization: Bearer {token}
 ```
 
-## 📚 Documentação Adicional
+#### Códigos de Resposta HTTP
+- **200**: Sucesso
+- **201**: Criado com sucesso
+- **400**: Dados inválidos
+- **401**: Não autenticado
+- **403**: Sem permissão
+- **404**: Recurso não encontrado
+- **422**: Erro de validação
+- **500**: Erro interno do servidor
 
-### Swagger/OpenAPI
-- Auth Service: http://177.44.248.89:8001/api/documentation
-- Eventos Service: http://177.44.248.89:8002/api/documentation
-- Inscrições Service: http://177.44.248.89:8003/api/documentation
-- Presença Service: http://177.44.248.89:8004/api/documentation
+#### Formato das Respostas
+```json
+{
+  "success": true,
+  "data": {},
+  "message": "Operação realizada com sucesso"
+}
+```
 
-### Arquivos de Configuração
-- `docker-compose.yml`: Orquestração dos containers
-- `backend/*/Dockerfile`: Imagens Docker de cada serviço
-- `frontend/Dockerfile`: Imagem do React
+#### Paginação
+```json
+{
+  "data": [],
+  "current_page": 1,
+  "last_page": 5,
+  "per_page": 15,
+  "total": 73
+}
+```
 
-## 🤝 Contribuição
+## 3. Modelo do Banco de Dados
 
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
+### Estrutura Geral
+O sistema utiliza um banco de dados MySQL compartilhado entre todos os serviços Laravel, com o serviço Django usando o mesmo banco para os certificados.
 
-## 📝 Licença
+### Entidades Principais
 
-Este projeto está licenciado sob a Licença MIT - veja o arquivo [LICENSE.md](LICENSE.md) para detalhes.
+#### Tabela: users (Auth Service)
+```sql
+users
+├── id (bigint, PK, auto_increment)
+├── name (varchar 255)
+├── email (varchar 255, unique)
+├── email_verified_at (timestamp, nullable)
+├── password (varchar 255)
+├── role (enum: 'participante', 'atendente', 'admin')
+├── cpf (varchar 14, unique, nullable)
+├── telefone (varchar 20, nullable)
+├── remember_token (varchar 100, nullable)
+├── created_at (timestamp)
+└── updated_at (timestamp)
+```
 
----
+#### Tabela: eventos (Eventos Service)
+```sql
+eventos
+├── id (bigint, PK, auto_increment)
+├── titulo (varchar 255)
+├── descricao (text)
+├── data_inicio (datetime)
+├── data_fim (datetime)
+├── data_inicio_inscricoes (datetime)
+├── data_fim_inscricoes (datetime)
+├── local (varchar 255)
+├── vagas (int)
+├── vagas_ocupadas (int, default 0)
+├── imagem (varchar 255, nullable)
+├── status (enum: 'ativo', 'inativo', 'cancelado')
+├── created_at (timestamp)
+└── updated_at (timestamp)
+```
 
-🚀 **Para iniciar rapidamente**: `docker-compose up -d` e acesse http://177.44.248.89
+#### Tabela: inscricoes (Inscrições Service)
+```sql
+inscricoes
+├── id (bigint, PK, auto_increment)
+├── user_id (bigint, FK users.id)
+├── evento_id (bigint, FK eventos.id)
+├── status (enum: 'ativa', 'cancelada')
+├── data_inscricao (datetime)
+├── created_at (timestamp)
+└── updated_at (timestamp)
+
+Indexes:
+├── UNIQUE (user_id, evento_id)
+└── INDEX (evento_id, status)
+```
+
+#### Tabela: presencas (Presença Service)
+```sql
+presencas
+├── id (bigint, PK, auto_increment)
+├── inscricao_id (bigint, FK inscricoes.id)
+├── user_id (bigint, FK users.id)
+├── evento_id (bigint, FK eventos.id)
+├── data_checkin (datetime)
+├── atendente_id (bigint, FK users.id, nullable)
+├── observacoes (text, nullable)
+├── created_at (timestamp)
+└── updated_at (timestamp)
+
+Indexes:
+├── UNIQUE (inscricao_id)
+├── INDEX (evento_id, data_checkin)
+└── INDEX (user_id)
+```
+
+#### Tabela: certificados (Certificados Service - Django)
+```sql
+certificados_certificado
+├── id (bigint, PK, auto_increment)
+├── user_id (bigint, FK users.id)
+├── evento_id (bigint, FK eventos.id)
+├── codigo_validacao (varchar 32, unique)
+├── arquivo_pdf (varchar 100)
+├── data_geracao (datetime)
+├── data_envio_email (datetime, nullable)
+├── status (varchar 20, choices: 'pendente', 'gerado', 'enviado')
+├── template_usado (varchar 100)
+├── created_at (timestamp)
+└── updated_at (timestamp)
+
+Indexes:
+├── UNIQUE (user_id, evento_id)
+├── UNIQUE (codigo_validacao)
+└── INDEX (status, data_geracao)
+```
+
+### Relacionamentos Entre Entidades
+
+#### Diagrama de Relacionamentos
+```
+users (1) ──────── (N) inscricoes (1) ──────── (1) presencas
+  │                     │                         │
+  │                     │                         │
+  │                   (N)│                         │
+  │                     │                         │
+  └─────── (N) certificados (N) ────── (1) eventos ──┘
+                        │                         │
+                        └─────── (1) ──────── (N)┘
+```
+
+
+#### URLs de Acesso
+- **Frontend**: http://177.44.248.89
+- **Auth API**: http://177.44.248.89:8001/api
+- **Eventos API**: http://177.44.248.89:8002/api
+- **Inscrições API**: http://177.44.248.89:8003/api
+- **Presença API**: http://177.44.248.89:8004/api
+- **Certificados API**: http://177.44.248.89:8005/api

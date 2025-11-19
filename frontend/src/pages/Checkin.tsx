@@ -289,28 +289,20 @@ export function CheckIn() {
   // Carregar eventos ativos
   useEffect(() => {
     const fetchEventos = async () => {
-      console.log('=== CHECKIN: Iniciando carregamento de eventos ===');
-      console.log('Navigator.onLine:', navigator.onLine);
       
       try {
         // Tentar carregar eventos da API principal primeiro
         let data = [];
         try {
-          console.log('CHECKIN: Tentando getEvents()');
           data = await getEvents();
-          console.log('CHECKIN: getEvents() sucesso:', data.length, 'eventos');
           setEventos(data);
         } catch (error) {
-          console.log('CHECKIN: getEvents() falhou:', error);
           // Fallback: tentar carregar eventos disponíveis (pode vir do cache)
           try {
-            console.log('CHECKIN: Tentando getEventosDisponiveis()');
             const eventosDisponiveis = await getEventosDisponiveis();
-            console.log('CHECKIN: getEventosDisponiveis() sucesso:', eventosDisponiveis.length, 'eventos');
             setEventos(eventosDisponiveis);
             data = eventosDisponiveis;
           } catch (error2) {
-            console.log('CHECKIN: getEventosDisponiveis() falhou:', error2);
             setMessage({ type: 'error', text: 'Erro ao carregar eventos. Verifique sua conexão.' });
             return;
           }
@@ -337,30 +329,16 @@ export function CheckIn() {
 
   // Carregar lista de presença do evento selecionado
   useEffect(() => {
-    if (selectedEvento) {
-      console.log('=== CHECKIN: Carregando inscritos do evento', selectedEvento, '===');
-      console.log('Navigator.onLine:', navigator.onLine);
-      
+    if (selectedEvento) {      
       const fetchInscritos = async () => {
         setLoading(true);
         
         try {
-          console.log('CHECKIN: Chamando getListaPresencaEvento para evento', selectedEvento);
           const response = await getListaPresencaEvento(selectedEvento);
-          
-          console.log('CHECKIN: Resposta recebida:', {
-            success: response.success,
-            inscritos_count: response.data?.inscritos?.length || 0,
-            evento: response.data?.evento?.nome,
-            response_keys: Object.keys(response)
-          });
-          
+        
           if (response.data && response.data.inscritos) {
-            console.log('CHECKIN: Primeiros 3 inscritos:', response.data.inscritos.slice(0, 3));
             setInscritos(response.data.inscritos);
           } else {
-            console.log('CHECKIN: PROBLEMA - response.data.inscritos não existe!');
-            console.log('CHECKIN: response.data:', response.data);
             setInscritos([]);
           }
 
@@ -371,9 +349,7 @@ export function CheckIn() {
             if (cache) {
               try {
                 const parsed = JSON.parse(cache);
-                console.log(`CHECKIN: Cache ${key}:`, typeof parsed === 'object' ? Object.keys(parsed) : 'not object');
                 if (key === 'inscritosPorEvento' && parsed[selectedEvento]) {
-                  console.log(`CHECKIN: Cache ${key} tem evento ${selectedEvento}:`, parsed[selectedEvento].length, 'inscritos');
                 }
               } catch (e) {
                 console.log(`CHECKIN: Erro ao parsear cache ${key}:`, e);
@@ -394,10 +370,6 @@ export function CheckIn() {
             setTimeout(() => setMessage(null), 3000);
           }
         } catch (error: any) {
-          console.log('CHECKIN: Erro ao carregar inscritos:', error);
-          console.log('CHECKIN: Error message:', error.message);
-          console.log('CHECKIN: Error stack:', error.stack);
-          
           setMessage({ 
             type: 'error', 
             text: `Erro ao carregar lista: ${error.message || 'Erro desconhecido'}. ${!navigator.onLine ? 'Verifique se há dados em cache.' : 'Verifique a conexão.'}`
@@ -409,7 +381,6 @@ export function CheckIn() {
 
       fetchInscritos();
     } else {
-      console.log('CHECKIN: Nenhum evento selecionado, limpando inscritos');
       setInscritos([]);
     }
   }, [selectedEvento]);
@@ -456,252 +427,269 @@ export function CheckIn() {
     inscrito.email.toLowerCase().includes(busca.toLowerCase())
   );
   
-  // Log do estado atual
-  console.log('CHECKIN: Estado atual:', {
-    eventos_count: eventos.length,
-    selectedEvento,
-    inscritos_count: inscritos.length,
-    inscritosFiltrados_count: inscritosFiltrados.length,
-    busca,
-    loading,
-    navigator_online: navigator.onLine
-  });
 
   return (
     <>
       <OfflineStatus />
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
         <div className="container mx-auto px-4 py-8">
-          <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-white/20">
-        {/* Header com gradiente */}
-        <div className="mb-8 text-center">
-          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
-            <h1 className="text-4xl md:text-5xl font-extrabold mb-3">✅ Check-in de Participantes</h1>
-          </div>
-          <div className="bg-white rounded-full px-6 py-3 inline-flex items-center shadow-lg border border-gray-200">
-            <div className="w-3 h-3 bg-green-500 rounded-full mr-3 animate-pulse"></div>
-            <p className="text-gray-700 font-medium">
-              Bem-vindo, <span className="text-blue-600 font-bold">{user?.name}</span> 
-              <span className="ml-2 px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-semibold">{user?.role}</span>
-            </p>
-          </div>
-        </div>
-
-        {/* Painel de Controle Offline */}
-        <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl shadow-lg">
-          <OfflineDashboard />
-        </div>
-
-        {/* Mensagem de feedback com ícones */}
-        {message && (
-          <div className={`mb-6 p-4 rounded-xl shadow-lg border-l-4 ${
-            message.type === 'success'
-              ? 'bg-green-50 border-l-green-500 border border-green-200 text-green-800'
-              : message.type === 'warning'
-              ? 'bg-yellow-50 border-l-yellow-500 border border-yellow-200 text-yellow-800'
-              : 'bg-red-50 border-l-red-500 border border-red-200 text-red-800'
-          }`}>
-            <div className="flex items-start gap-3">
-              <span className="text-lg">
-                {message.type === 'success' ? '✅' : message.type === 'warning' ? '⚠️' : '❌'}
-              </span>
-              <span className="font-medium">{message.text}</span>
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+            {/* Header moderno */}
+            <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 px-8 py-12 text-white">
+              <div className="text-center">
+                <h1 className="text-4xl md:text-5xl font-bold mb-4 drop-shadow-lg">
+                  Check-in de Participantes
+                </h1>
+                <div className="inline-flex items-center bg-white/20 backdrop-blur-sm rounded-full px-6 py-3 border border-white/30">
+                  <div className="w-3 h-3 bg-green-400 rounded-full mr-3 animate-pulse shadow-lg"></div>
+                  <p className="font-medium">
+                    Bem-vindo, <span className="font-bold">{user?.name}</span>
+                    <span className="ml-3 px-3 py-1 bg-white/30 rounded-full text-sm font-semibold">
+                      {user?.role}
+                    </span>
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* Seleção de evento com estilo melhorado */}
-        <div className="mb-8">
-          <div className="flex justify-between items-end mb-3">
-            <label className="block text-lg font-semibold text-gray-800 flex items-center gap-2">
-              🎯 Selecione o Evento:
-            </label>
-            {selectedEvento && (
-              <button
-                onClick={() => {
-                  setInscritos([]);
-                  setMessage(null);
-                  const eventoId = selectedEvento;
-                  setSelectedEvento(null);
-                  setTimeout(() => setSelectedEvento(eventoId), 100);
-                }}
-                className="text-sm bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-              >
-                🔄 Recarregar Lista
-              </button>
+            {/* Conteúdo principal */}
+            <div className="p-8">
+
+            {/* Painel de Controle Offline */}
+            <div className="mb-8 p-6 bg-gradient-to-r from-slate-50 to-gray-100 border border-slate-200 rounded-xl shadow-lg">
+              <OfflineDashboard />
+            </div>
+
+            {/* Mensagem de feedback moderna */}
+            {message && (
+              <div className={`mb-6 p-4 rounded-xl shadow-lg border-l-4 backdrop-blur-sm ${
+                message.type === 'success'
+                  ? 'bg-emerald-50/80 border-l-emerald-500 border border-emerald-200 text-emerald-800'
+                  : message.type === 'warning'
+                  ? 'bg-amber-50/80 border-l-amber-500 border border-amber-200 text-amber-800'
+                  : 'bg-red-50/80 border-l-red-500 border border-red-200 text-red-800'
+              }`}>
+                <div className="flex items-start gap-3">
+                  <span className="text-lg">
+                    {message.type === 'success' ? '✅' : message.type === 'warning' ? '⚠️' : '❌'}
+                  </span>
+                  <span className="font-medium">{message.text}</span>
+                </div>
+              </div>
             )}
-          </div>
-          <select
-            value={selectedEvento || ''}
-            onChange={(e) => setSelectedEvento(e.target.value ? Number(e.target.value) : null)}
-            className="w-full p-4 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 bg-white shadow-sm hover:shadow-md text-lg"
-          >
-            <option value="">🎪 -- Selecione um evento --</option>
-            {eventos.map(evento => (
-              <option key={evento.id} value={evento.id}>
-                📅 {evento.nome} - {new Date(evento.data_inicio).toLocaleDateString('pt-BR')} 📍 {evento.local}
-              </option>
-            ))}
-          </select>
-        </div>
 
-        {/* Busca de participantes */}
-        {selectedEvento && (
-          <div className="mb-8">
-            <label className="block text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-              🔍 Buscar Participante:
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                placeholder="✨ Digite o nome ou email do participante..."
-                className="w-full p-4 pl-12 border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-200 bg-white shadow-sm hover:shadow-md text-lg"
-              />
-              <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-xl">
-                🔍
-              </div>
-              {busca && (
-                <button
-                  onClick={() => setBusca('')}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xl"
-                >
-                  ✖️
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {selectedEvento && (
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                👥 Participantes Inscritos
-                <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-full text-lg font-bold shadow-lg">
-                  {inscritosFiltrados.length}
-                </span>
-              </h2>
-              {inscritosFiltrados.length > 0 && (
-                <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-lg">
-                  {inscritosFiltrados.filter(i => i.ja_tem_presenca).length} check-ins realizados
-                </div>
-              )}
-            </div>
-            
-
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <div className="relative">
-                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200"></div>
-                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent absolute top-0 left-0"></div>
-                </div>
-                <p className="mt-4 text-gray-600 font-medium animate-pulse">🔄 Carregando participantes...</p>
-              </div>
-            ) : inscritosFiltrados.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">{busca ? '🔍' : '👥'}</div>
-                <div className="text-xl font-semibold text-gray-600 mb-2">
-                  {busca ? 'Nenhum resultado encontrado' : 'Nenhum participante inscrito'}
-                </div>
-                <div className="text-gray-500">
-                  {busca ? 'Tente buscar por outro termo.' : 'Este evento ainda não possui inscrições.'}
-                </div>
-                {busca && (
+            {/* Seleção de evento moderna */}
+            <div className="mb-8">
+              <div className="flex justify-between items-end mb-4">
+                <label className="block text-lg font-bold text-slate-800 flex items-center gap-2">
+                  Selecione o Evento
+                </label>
+                {selectedEvento && (
                   <button
-                    onClick={() => setBusca('')}
-                    className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    onClick={() => {
+                      setInscritos([]);
+                      setMessage(null);
+                      const eventoId = selectedEvento;
+                      setSelectedEvento(null);
+                      setTimeout(() => setSelectedEvento(eventoId), 100);
+                    }}
+                    className="text-sm bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                   >
-                    🔄 Limpar busca
+                    Recarregar Lista
                   </button>
                 )}
               </div>
-            ) : (
-              <div className="grid gap-6 md:gap-4">
-                {inscritosFiltrados.map((inscrito: Inscrito) => (
-                  <div 
-                    key={inscrito.inscricao_id} 
-                    className={`relative overflow-hidden transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl rounded-2xl border-2 p-6 ${
-                      inscrito.ja_tem_presenca 
-                        ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 shadow-lg' 
-                        : 'bg-white border-gray-200 hover:border-blue-300 shadow-md'
-                    }`}
-                  >
-                    {/* Badge de status no canto superior direito */}
-                    <div className="absolute top-4 right-4">
-                      {inscrito.ja_tem_presenca ? (
-                        <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse">
-                          ✅ PRESENTE
-                        </div>
+              <select
+                value={selectedEvento || ''}
+                onChange={(e) => setSelectedEvento(e.target.value ? Number(e.target.value) : null)}
+                className="w-full p-4 border-2 border-slate-300 rounded-xl focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 bg-white shadow-lg hover:shadow-xl text-lg font-medium"
+              >
+                <option value="">-- Escolha um evento para começar --</option>
+                {eventos.map(evento => (
+                  <option key={evento.id} value={evento.id}>
+                    {evento.nome} - {new Date(evento.data_inicio).toLocaleDateString('pt-BR')} | {evento.local}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Busca de participantes moderna */}
+            {selectedEvento && (
+              <div className="mb-8">
+                <label className="block text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  Buscar Participante
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
+                    placeholder="Digite o nome ou email do participante..."
+                    className="w-full p-4 pl-14 pr-12 border-2 border-slate-300 rounded-xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-200 bg-white shadow-lg hover:shadow-xl text-lg font-medium"
+                  />
+                  {busca && (
+                    <button
+                      onClick={() => setBusca('')}
+                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xl bg-slate-100 hover:bg-slate-200 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {selectedEvento && (
+              <div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+                  <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
+                    Participantes Inscritos
+                    <span className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-4 py-2 rounded-full text-lg font-bold shadow-lg">
+                      {inscritosFiltrados.length}
+                    </span>
+                  </h2>
+                  {inscritosFiltrados.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm text-emerald-700 bg-emerald-100 px-3 py-2 rounded-lg font-semibold border border-emerald-200">
+                        {inscritosFiltrados.filter(i => i.ja_tem_presenca).length} presentes
+                      </div>
+                      <div className="text-sm text-amber-700 bg-amber-100 px-3 py-2 rounded-lg font-semibold border border-amber-200">
+                        {inscritosFiltrados.filter(i => !i.ja_tem_presenca).length} pendentes
+                      </div>
+                    </div>
+                  )}
+                </div>
+            
+
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <div className="relative">
+                      <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200"></div>
+                      <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-600 border-t-transparent absolute top-0 left-0"></div>
+                    </div>
+                    <p className="mt-6 text-slate-600 font-semibold animate-pulse">Carregando participantes...</p>
+                  </div>
+                ) : inscritosFiltrados.length === 0 ? (
+                  <div className="text-center py-16 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300">
+                    <div className="w-16 h-16 mx-auto mb-6 bg-slate-200 rounded-full flex items-center justify-center">
+                      {busca ? (
+                        <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
                       ) : (
-                        <div className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold">
-                          ⏳ PENDENTE
-                        </div>
+                        <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
                       )}
                     </div>
-
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pr-28 md:pr-36">
-                      {/* Informações do participante */}
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                            {inscrito.nome.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <h3 className="text-xl font-bold text-gray-800">{inscrito.nome}</h3>
-                            <p className="text-gray-600 flex items-center gap-1">
-                              📧 {inscrito.email}
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-wrap gap-3 text-sm">
-                          <div className={`px-3 py-1 rounded-full font-semibold ${
-                            inscrito.status_inscricao === 'confirmado' 
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            📋 {inscrito.status_inscricao}
-                          </div>
-                          
-                          {inscrito.cpf && (
-                            <div className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-mono text-xs">
-                              🆔 {inscrito.cpf}
+                    <div className="text-xl font-bold text-slate-700 mb-3">
+                      {busca ? 'Nenhum resultado encontrado' : 'Nenhum participante inscrito'}
+                    </div>
+                    <div className="text-slate-500 mb-6">
+                      {busca ? 'Tente buscar por outro termo.' : 'Este evento ainda não possui inscrições.'}
+                    </div>
+                    {busca && (
+                      <button
+                        onClick={() => setBusca('')}
+                        className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all font-semibold shadow-lg"
+                      >
+                        Limpar busca
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {inscritosFiltrados.map((inscrito: Inscrito) => (
+                      <div 
+                        key={inscrito.inscricao_id} 
+                        className={`relative overflow-hidden transition-all duration-300 transform hover:-translate-y-1 hover:shadow-2xl rounded-xl border-2 p-6 backdrop-blur-sm ${
+                          inscrito.ja_tem_presenca 
+                            ? 'bg-gradient-to-r from-emerald-50/90 to-green-50/90 border-emerald-300 shadow-xl ring-1 ring-emerald-200' 
+                            : 'bg-white/90 border-slate-200 hover:border-indigo-300 shadow-lg hover:shadow-xl ring-1 ring-slate-100'
+                        }`}
+                      >
+                        {/* Badge de status moderno */}
+                        <div className="absolute top-4 right-4">
+                          {inscrito.ja_tem_presenca ? (
+                            <div className="bg-gradient-to-r from-emerald-500 to-green-500 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse shadow-lg flex items-center gap-1">
+                              PRESENTE
+                            </div>
+                          ) : (
+                            <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
+                              PENDENTE
                             </div>
                           )}
                         </div>
-                      </div>
 
-                      {/* Botão de check-in */}
-                      <div className="absolute bottom-4 right-4 md:relative md:bottom-auto md:right-auto">
-                        <button
-                          onClick={() => handleCheckIn(inscrito)}
-                          className={`px-8 py-3 rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 shadow-lg ${
-                            inscrito.ja_tem_presenca
-                              ? 'bg-green-500 text-white cursor-default'
-                              : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white hover:shadow-xl'
-                          }`}
-                          disabled={inscrito.ja_tem_presenca}
-                        >
-                          {inscrito.ja_tem_presenca ? (
-                            <span className="flex items-center gap-2">
-                              ✅ Check-in OK
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-2">
-                              🎯 Fazer Check-in
-                            </span>
-                          )}
-                        </button>
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pr-28 md:pr-40">
+                          {/* Informações do participante modernas */}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-4 mb-4">
+                              <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-lg ring-4 ring-white">
+                                {inscrito.nome.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <h3 className="text-xl font-bold text-slate-800 mb-1">{inscrito.nome}</h3>
+                                <p className="text-slate-600 flex items-center gap-2 font-medium">
+                                  {inscrito.email}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex flex-wrap gap-3 text-sm">
+                              <div className={`px-4 py-2 rounded-full font-bold shadow-sm border ${
+                                inscrito.status_inscricao === 'confirmado' 
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                              }`}>
+                                {inscrito.status_inscricao}
+                              </div>
+                              
+                              {inscrito.cpf && (
+                                <div className="bg-slate-100 text-slate-700 px-4 py-2 rounded-full font-mono text-xs border border-slate-200">
+                                  {inscrito.cpf}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Botão de check-in moderno */}
+                          <div className="absolute bottom-4 right-4 md:relative md:bottom-auto md:right-auto">
+                            <button
+                              onClick={() => handleCheckIn(inscrito)}
+                              className={`px-8 py-4 rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 shadow-xl ${
+                                inscrito.ja_tem_presenca
+                                  ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white cursor-default ring-4 ring-emerald-200'
+                                  : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white hover:shadow-2xl ring-4 ring-purple-200 hover:ring-purple-300'
+                              }`}
+                              disabled={inscrito.ja_tem_presenca}
+                            >
+                              {inscrito.ja_tem_presenca ? (
+                                <span className="flex items-center gap-2">
+                                  Check-in OK
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-2">
+                                  Fazer Check-in
+                                </span>
+                              )}
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             )}
-          </div>
-        )}
+            </div>
           </div>
         </div>
       </div>

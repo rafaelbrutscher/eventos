@@ -22,12 +22,10 @@ export function OfflineStatus() {
   useEffect(() => {
     const handleOnline = () => {
       setStatus(getStatusOffline());
-      console.log('Conexão restaurada!');
     };
 
     const handleOffline = () => {
       setStatus(getStatusOffline());
-      console.log('Conexão perdida - modo offline ativo');
     };
 
     window.addEventListener('online', handleOnline);

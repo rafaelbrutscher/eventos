@@ -111,12 +111,7 @@ export function CadastroRapido() {
     dadosOffline.push(cadastroCompleto);
     localStorage.setItem('cadastrosOffline', JSON.stringify(dadosOffline));
     
-    console.log('Cadastro completo salvo offline:', {
-      usuario: cadastroCompleto.usuario.name,
-      email: cadastroCompleto.usuario.email,
-      evento: cadastroCompleto.evento_nome,
-      timestamp: cadastroCompleto.timestamp
-    });
+   
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -199,7 +194,6 @@ export function CadastroRapido() {
   // Função para adicionar o novo inscrito ao cache local imediatamente (TODOS os caches)
   const adicionarAoCacheLocal = (cadastroCompleto: any) => {
     try {
-      console.log('=== ATUALIZANDO TODOS OS CACHES COM NOVO CADASTRO ===');
       
       // Criar objeto inscrito padronizado
       const novoInscrito = {
@@ -229,7 +223,6 @@ export function CadastroRapido() {
       if (!jaExiste) {
         inscritosPorEvento[cadastroCompleto.inscricao.evento_id].push(novoInscrito);
         localStorage.setItem('inscritosPorEvento', JSON.stringify(inscritosPorEvento));
-        console.log('✓ Cache inscritosPorEvento atualizado');
       }
       
       // 2. Atualizar cached_presenca_lists (cache do presencaService)
@@ -246,7 +239,6 @@ export function CadastroRapido() {
           cachePresenca[cadastroCompleto.inscricao.evento_id].data.total_inscritos++;
           cachePresenca[cadastroCompleto.inscricao.evento_id].data.total_presencas++;
           cachePresenca[cadastroCompleto.inscricao.evento_id].timestamp = Date.now();
-          console.log('✓ Cache cached_presenca_lists atualizado (evento existente)');
         }
       } else {
         // Criar entrada no cache se não existir
@@ -267,7 +259,6 @@ export function CadastroRapido() {
           },
           timestamp: Date.now()
         };
-        console.log('✓ Cache cached_presenca_lists criado para novo evento');
       }
       
       localStorage.setItem('cached_presenca_lists', JSON.stringify(cachePresenca));
@@ -291,21 +282,12 @@ export function CadastroRapido() {
               dados.inscricoesPorEvento[cadastroCompleto.inscricao.evento_id].push(novoInscrito);
               dados.timestamp = Date.now();
               localStorage.setItem('cache_completo_offline', JSON.stringify(dados));
-              console.log('✓ Cache cache_completo_offline atualizado');
             }
           }
         } catch (e) {
           console.warn('Erro ao atualizar cache_completo_offline:', e);
         }
       }
-      
-      console.log('=== NOVO INSCRITO ADICIONADO A TODOS OS CACHES ===', {
-        nome: novoInscrito.nome,
-        email: novoInscrito.email,
-        evento_id: novoInscrito.evento_id,
-        inscricao_id: novoInscrito.inscricao_id,
-        ja_tem_presenca: novoInscrito.ja_tem_presenca
-      });
       
     } catch (error) {
       console.error('ERRO CRÍTICO ao adicionar ao cache local:', error);

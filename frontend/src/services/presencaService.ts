@@ -111,7 +111,6 @@ const salvarCheckinOffline = (checkin: CheckinOffline): void => {
     const checkinsOffline = getCheckinsOffline();
     checkinsOffline.push(checkin);
     localStorage.setItem(STORAGE_KEYS.OFFLINE_CHECKINS, JSON.stringify(checkinsOffline));
-    console.log('Check-in salvo offline:', checkin);
   } catch (error) {
     console.error('Erro ao salvar check-in offline:', error);
   }
@@ -166,7 +165,6 @@ const getCacheListasPresenca = (): Record<number, ListaPresencaResponse & { time
 // Verificar se está online (com verificação mais robusta)
 const isOnline = (): boolean => {
   if (!navigator.onLine) {
-    console.log('CONNECTIVITY: navigator.onLine = false');
     return false;
   }
   
@@ -177,7 +175,6 @@ const isOnline = (): boolean => {
     const timeSinceError = Date.now() - errorTime;
     // Se teve erro há menos de 10 segundos, considerar offline
     if (timeSinceError < 10000) {
-      console.log('CONNECTIVITY: Erro de conexão recente, considerando offline');
       return false;
     }
   }
@@ -207,7 +204,6 @@ const verificarIntegridadeCache = (eventoId: number): {
     const cacheCompleto = getCacheCompleto();
     if (cacheCompleto && cacheCompleto.inscricoesPorEvento[eventoId]) {
       fontes.cacheCompleto = cacheCompleto.inscricoesPorEvento[eventoId];
-      console.log(`CACHE_CHECK: Cache completo tem ${fontes.cacheCompleto.length} inscritos para evento ${eventoId}`);
     } else {
       problemas.push('Cache completo não tem dados para este evento');
     }
@@ -216,7 +212,6 @@ const verificarIntegridadeCache = (eventoId: number): {
     const cachedLists = getCacheListasPresenca();
     if (cachedLists[eventoId]) {
       fontes.cachedLists = cachedLists[eventoId].data.inscritos;
-      console.log(`CACHE_CHECK: Cached lists tem ${fontes.cachedLists.length} inscritos para evento ${eventoId}`);
     } else {
       problemas.push('Cached lists não tem dados para este evento');
     }
@@ -227,7 +222,6 @@ const verificarIntegridadeCache = (eventoId: number): {
       const dados = JSON.parse(inscritosPorEvento);
       if (dados[eventoId]) {
         fontes.inscritosPorEvento = dados[eventoId];
-        console.log(`CACHE_CHECK: InscritosPorEvento tem ${fontes.inscritosPorEvento.length} inscritos para evento ${eventoId}`);
       } else {
         problemas.push('InscritosPorEvento não tem dados para este evento');
       }
@@ -268,10 +262,8 @@ const verificarIntegridadeCache = (eventoId: number): {
 
 // Função para unificar dados de múltiplas fontes de cache
 const unificarDadosCache = (eventoId: number): Inscrito[] => {
-  console.log(`CACHE_UNIFY: Iniciando unificação para evento ${eventoId}`);
   
   const integridade = verificarIntegridadeCache(eventoId);
-  console.log('CACHE_UNIFY: Resultado da verificação de integridade:', integridade);
 
   // Prioridade: Cache completo -> Cached lists -> InscritosPorEvento
   const fontes = [
@@ -282,7 +274,6 @@ const unificarDadosCache = (eventoId: number): Inscrito[] => {
 
   for (const fonte of fontes) {
     if (fonte.dados && Array.isArray(fonte.dados) && fonte.dados.length > 0) {
-      console.log(`CACHE_UNIFY: Usando dados de ${fonte.nome} (${fonte.dados.length} inscritos)`);
       
       // Padronizar formato
       return fonte.dados.map((inscrito: any) => ({
@@ -300,7 +291,6 @@ const unificarDadosCache = (eventoId: number): Inscrito[] => {
     }
   }
 
-  console.log('CACHE_UNIFY: Nenhuma fonte de cache válida encontrada');
   return [];
 };
 
@@ -315,7 +305,6 @@ const markConnectionError = (): void => {
 const salvarCacheCompleto = (cache: CacheCompletoOffline): void => {
   try {
     localStorage.setItem(STORAGE_KEYS.CACHE_COMPLETO, JSON.stringify(cache));
-    console.log('Cache completo salvo:', cache.eventos.length, 'eventos');
   } catch (error) {
     console.error('Erro ao salvar cache completo:', error);
   }
@@ -365,16 +354,13 @@ const getEventosDisponiveisCache = (): EventoBasico[] => {
         const eventos = key === 'eventosCache' ? data : (data.eventos || []);
         
         if (Array.isArray(eventos) && eventos.length > 0) {
-          console.log(`PRESENCA: Eventos encontrados no cache '${key}':`, eventos.length);
           return eventos;
         }
       }
     }
     
-    console.log('PRESENCA: Nenhum cache de eventos encontrado');
     return [];
   } catch (error) {
-    console.log('PRESENCA: Erro ao recuperar eventos do cache:', error);
     return [];
   }
 };
@@ -385,18 +371,10 @@ const getEventosDisponiveisCache = (): EventoBasico[] => {
  * Baixa todos os eventos disponíveis
  */
 export const getEventosDisponiveis = async (): Promise<EventoBasico[]> => {
-  console.log('=== PRESENCA SERVICE: getEventosDisponiveis ===');
-  console.log('Is Online:', isOnline());
   
   try {
     if (isOnline()) {
-      console.log('PRESENCA: Tentando buscar eventos online...');
       const { data } = await privateApi.get<EventosDisponiveisResponse>('/eventos-disponiveis');
-      
-      console.log('PRESENCA: Resposta eventos online:', {
-        success: data.success,
-        eventos_count: data.data?.eventos?.length || 0
-      });
       
       if (data.success) {
         // Salvar em cache
@@ -410,7 +388,6 @@ export const getEventosDisponiveis = async (): Promise<EventoBasico[]> => {
 
   // Usar cache se offline ou erro
   const eventosCache = getEventosDisponiveisCache();
-  console.log('PRESENCA: Eventos do cache:', eventosCache.length);
   
   return eventosCache;
 };/**
@@ -426,7 +403,6 @@ export const baixarDadosCompletos = async (): Promise<{
     tamanhoCache: string;
   };
 }> => {
-  console.log('=== INICIANDO DOWNLOAD DE DADOS COMPLETOS ===');
 
   if (!isOnline()) {
     throw new Error('É necessário estar online para baixar dados completos');
@@ -434,9 +410,7 @@ export const baixarDadosCompletos = async (): Promise<{
 
   try {
     // 1. Buscar todos os eventos disponíveis
-    console.log('DOWNLOAD: Buscando eventos disponíveis...');
     const eventos = await getEventosDisponiveis();
-    console.log(`DOWNLOAD: ${eventos.length} eventos encontrados`);
 
     if (eventos.length === 0) {
       throw new Error('Nenhum evento disponível para download');
@@ -449,7 +423,6 @@ export const baixarDadosCompletos = async (): Promise<{
 
     for (const evento of eventos) {
       try {
-        console.log(`DOWNLOAD: Baixando inscrições do evento: ${evento.nome} (ID: ${evento.id})`);
         
         // Fazer requisição direta para evitar cache
         const { data } = await privateApi.get<ListaPresencaResponse>(`/eventos/${evento.id}/lista-presenca`);
@@ -461,9 +434,8 @@ export const baixarDadosCompletos = async (): Promise<{
           // Salvar também no cache individual
           salvarListaCache(evento.id, data);
           
-          console.log(`DOWNLOAD: ✓ Evento ${evento.nome}: ${data.data.inscritos.length} inscritos`);
         } else {
-          console.warn(`DOWNLOAD: ⚠ Evento ${evento.nome}: dados inválidos`);
+          console.warn(`DOWNLOAD: Evento ${evento.nome}: dados inválidos`);
           inscricoesPorEvento[evento.id] = [];
           eventosComErro++;
         }
@@ -472,7 +444,7 @@ export const baixarDadosCompletos = async (): Promise<{
         await new Promise(resolve => setTimeout(resolve, 200));
         
       } catch (error: any) {
-        console.warn(`DOWNLOAD: ❌ Erro ao baixar evento ${evento.nome}:`, error.message);
+        console.warn(`DOWNLOAD: Erro ao baixar evento ${evento.nome}:`, error.message);
         inscricoesPorEvento[evento.id] = [];
         eventosComErro++;
       }
@@ -488,10 +460,7 @@ export const baixarDadosCompletos = async (): Promise<{
 
     salvarCacheCompleto(cacheCompleto);
 
-    // 4. Sincronizar com outros caches para garantir consistência
-    console.log('DOWNLOAD: Sincronizando caches...');
     
-    // Atualizar inscritosPorEvento
     localStorage.setItem('inscritosPorEvento', JSON.stringify(inscricoesPorEvento));
     
     // Atualizar eventos disponíveis
@@ -505,12 +474,6 @@ export const baixarDadosCompletos = async (): Promise<{
       ? `Dados baixados com ${eventosComErro} erro(s). Sistema pronto para funcionar offline.`
       : 'Dados baixados com sucesso! Sistema pronto para funcionar offline.';
 
-    console.log('=== DOWNLOAD COMPLETO FINALIZADO ===', {
-      eventos: eventos.length,
-      totalInscricoes,
-      eventosComErro,
-      tamanhoKB
-    });
 
     return {
       success: true,
@@ -532,23 +495,10 @@ export const baixarDadosCompletos = async (): Promise<{
  * Carrega lista de presença de um evento (com cache offline melhorado)
  */
 export const getListaPresencaEvento = async (eventoId: number): Promise<ListaPresencaResponse> => {
-  console.log(`=== PRESENCA SERVICE: getListaPresencaEvento (evento ${eventoId}) ===`);
-  console.log('Connectivity check:', {
-    navigatorOnline: navigator.onLine,
-    isOnlineFunc: isOnline()
-  });
-
   try {
     // Tentar buscar online primeiro
     if (isOnline()) {
-      console.log('PRESENCA: Tentando buscar dados online...');
       const { data } = await privateApi.get<ListaPresencaResponse>(`/eventos/${eventoId}/lista-presenca`);
-      
-      console.log('PRESENCA: Dados obtidos online:', {
-        success: data.success,
-        inscritos: data.data?.inscritos?.length || 0,
-        evento: data.data?.evento?.nome
-      });
 
       // Salvar em múltiplos caches para garantir consistência
       salvarListaCache(eventoId, data);
@@ -564,11 +514,9 @@ export const getListaPresencaEvento = async (eventoId: number): Promise<ListaPre
     markConnectionError();
   }
 
-  console.log('PRESENCA: Modo offline - verificando caches disponíveis');
 
   // Verificar integridade dos caches antes de usar
   const integridade = verificarIntegridadeCache(eventoId);
-  console.log('PRESENCA: Integridade do cache:', integridade);
 
   // Usar dados unificados de cache
   const inscritosUnificados = unificarDadosCache(eventoId);
@@ -610,13 +558,6 @@ export const getListaPresencaEvento = async (eventoId: number): Promise<ListaPre
       }
     };
 
-    console.log('PRESENCA: Dados retornados do cache unificado:', {
-      evento: eventoInfo.nome,
-      inscritos: inscritosUnificados.length,
-      presencas: resultado.data.total_presencas,
-      problemas: integridade.problemas
-    });
-
     return resultado;
   }
 
@@ -635,7 +576,6 @@ const atualizarCacheInscritosPorEvento = (eventoId: number, inscritos: Inscrito[
     const cache = JSON.parse(localStorage.getItem('inscritosPorEvento') || '{}');
     cache[eventoId] = inscritos;
     localStorage.setItem('inscritosPorEvento', JSON.stringify(cache));
-    console.log(`Cache inscritosPorEvento atualizado para evento ${eventoId} com ${inscritos.length} inscritos`);
   } catch (error) {
     console.error('Erro ao atualizar cache inscritosPorEvento:', error);
   }
@@ -663,14 +603,11 @@ export const realizarCheckin = async (payload: CheckinPayload): Promise<CheckinR
                                      connectivityCheck.navigatorOnline && 
                                      !connectivityCheck.forceOffline;
 
-  console.log('CHECKIN: Análise de conectividade:', connectivityCheck);
 
   // Se deve e pode tentar online, tentar primeiro
   if (connectivityCheck.shouldTryOnline) {
     try {
-      console.log('CHECKIN: Tentando check-in online...');
       const { data } = await privateApi.post<CheckinResponse>('/check-in', checkinData);
-      console.log('CHECKIN: Check-in realizado online com sucesso:', data);
       return data;
     } catch (error: any) {
       console.error('CHECKIN: Erro no check-in online, salvando offline:', error);
@@ -681,7 +618,6 @@ export const realizarCheckin = async (payload: CheckinPayload): Promise<CheckinR
   }
 
   // Modo offline (sem internet OU falha no online)
-  console.log('CHECKIN: Salvando check-in offline');
   const checkinOffline: CheckinOffline = {
     ...checkinData,
     id: `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -731,7 +667,6 @@ export const adicionarCadastroOfflineTeste = (nome: string, email: string, event
   cadastrosOffline.push(novoCadastro);
   localStorage.setItem('cadastrosOffline', JSON.stringify(cadastrosOffline));
   
-  console.log('✅ Cadastro offline adicionado para teste:', novoCadastro);
 };
 
 /**
@@ -747,44 +682,40 @@ export const sincronizarCadastrosOffline = async (): Promise<{
     resultados: any[];
   };
 }> => {
-  console.log('=== INICIANDO SINCRONIZAÇÃO DE CADASTROS OFFLINE ===');
   
   if (!isOnline()) {
     throw new Error('Sincronização requer conexão com a internet');
   }
 
   const cadastrosOffline = JSON.parse(localStorage.getItem('cadastrosOffline') || '[]');
-  console.log('📦 Todos os cadastros offline:', cadastrosOffline);
   
   const pendentes = cadastrosOffline.filter((c: any) => !c.sincronizado);
-  console.log(`📋 SYNC_CADASTROS: ${pendentes.length} cadastros pendentes de sincronização`);
   
   // Validar estrutura dos cadastros pendentes
   for (let i = 0; i < pendentes.length; i++) {
     const cadastro = pendentes[i];
-    console.log(`🔍 Validando cadastro ${i + 1}:`, cadastro);
     
     // Validações básicas
     if (!cadastro.usuario) {
-      console.error(`❌ Cadastro ${i + 1}: falta objeto 'usuario'`);
+      console.error(`Cadastro ${i + 1}: falta objeto 'usuario'`);
     }
     if (!cadastro.usuario?.name) {
-      console.error(`❌ Cadastro ${i + 1}: falta 'usuario.name'`);
+      console.error(`Cadastro ${i + 1}: falta 'usuario.name'`);
     }
     if (!cadastro.usuario?.email) {
-      console.error(`❌ Cadastro ${i + 1}: falta 'usuario.email'`);
+      console.error(`Cadastro ${i + 1}: falta 'usuario.email'`);
     }
     if (!cadastro.inscricao) {
-      console.error(`❌ Cadastro ${i + 1}: falta objeto 'inscricao'`);
+      console.error(`Cadastro ${i + 1}: falta objeto 'inscricao'`);
     }
     if (!cadastro.inscricao?.evento_id) {
-      console.error(`❌ Cadastro ${i + 1}: falta 'inscricao.evento_id'`);
+      console.error(`Cadastro ${i + 1}: falta 'inscricao.evento_id'`);
     }
     if (!cadastro.presenca) {
-      console.error(`❌ Cadastro ${i + 1}: falta objeto 'presenca'`);
+      console.error(`Cadastro ${i + 1}: falta objeto 'presenca'`);
     }
     if (!cadastro.presenca?.data_hora) {
-      console.error(`❌ Cadastro ${i + 1}: falta 'presenca.data_hora'`);
+      console.error(`Cadastro ${i + 1}: falta 'presenca.data_hora'`);
     }
   }
 
@@ -802,21 +733,11 @@ export const sincronizarCadastrosOffline = async (): Promise<{
   }
 
   try {
-    // Log detalhado dos dados enviados
-    console.log('=== DADOS ENVIADOS PARA SINCRONIZAÇÃO ===');
-    console.log('Total de cadastros pendentes:', pendentes.length);
-    console.log('Primeiro cadastro (exemplo):', JSON.stringify(pendentes[0], null, 2));
-    console.log('Estrutura completa dos pendentes:', pendentes);
     
     // Usar endpoint único para sincronizar todos os cadastros
     const response = await privateApi.post('/cadastro-rapido/offline-sync', {
       cadastros: pendentes
     });
-
-    console.log('=== RESPOSTA DA SINCRONIZAÇÃO ===');
-    console.log('Status:', response.status);
-    console.log('Headers:', response.headers);
-    console.log('Data completa:', response.data);
     
     const { data } = response;
 
@@ -829,10 +750,8 @@ export const sincronizarCadastrosOffline = async (): Promise<{
       
       // Salvar cadastros atualizados
       localStorage.setItem('cadastrosOffline', JSON.stringify(cadastrosOffline));
-      console.log('SYNC_CADASTROS: Cadastros marcados como sincronizados');
 
       // Limpar caches para forçar reload dos dados atualizados do servidor
-      console.log('SYNC_CADASTROS: Limpando caches para forçar reload...');
       limparCachesParaReload();
     }
 
@@ -866,7 +785,6 @@ export const sincronizarCheckinsOffline = async (): Promise<{
     resultados: any[];
   };
 }> => {
-  console.log('=== INICIANDO SINCRONIZAÇÃO DE CHECK-INS OFFLINE ===');
 
   if (!isOnline()) {
     throw new Error('Sincronização requer conexão com a internet');
@@ -874,7 +792,6 @@ export const sincronizarCheckinsOffline = async (): Promise<{
 
   const checkinsOffline = getCheckinsOffline().filter(c => !c.sincronizado);
 
-  console.log(`SYNC_CHECKINS: ${checkinsOffline.length} check-ins pendentes de sincronização`);
 
   if (checkinsOffline.length === 0) {
     return {
@@ -897,11 +814,9 @@ export const sincronizarCheckinsOffline = async (): Promise<{
       data_hora: c.data_hora!
     }));
 
-    console.log('SYNC_CHECKINS: Enviando dados para servidor:', checkins);
 
     const { data } = await privateApi.post('/check-in/offline-sync', { checkins });
 
-    console.log('SYNC_CHECKINS: Resposta da sincronização:', data);
 
     // Marcar como sincronizados
     const todosCheckins = getCheckinsOffline();
@@ -913,7 +828,6 @@ export const sincronizarCheckinsOffline = async (): Promise<{
       }
     });
     localStorage.setItem(STORAGE_KEYS.OFFLINE_CHECKINS, JSON.stringify(todosCheckins));
-    console.log('SYNC_CHECKINS: Check-ins marcados como sincronizados');
 
     // Limpar sincronizados após um tempo
     setTimeout(limparCheckinsSincronizados, 1000);
@@ -962,12 +876,8 @@ export const sincronizarTodosOffline = async (): Promise<{
   };
 
   try {
-    // 1. Sincronizar cadastros offline primeiro
-    console.log('=== Sincronizando cadastros offline ===');
     resultados.cadastros = await sincronizarCadastrosOffline();
     
-    // 2. Sincronizar check-ins offline
-    console.log('=== Sincronizando check-ins offline ===');
     resultados.checkins = await sincronizarCheckinsOffline();
     
     const totalSucessos = (resultados.cadastros.detalhes.sucessos || 0) + (resultados.checkins.detalhes.sucessos || 0);
@@ -1004,7 +914,6 @@ export const getCadastrosOfflinePendentes = (): number => {
  * Limpa caches específicos para forçar reload após sincronização
  */
 export const limparCachesParaReload = (): void => {
-  console.log('=== LIMPANDO CACHES PARA RELOAD ===');
   
   // Caches que devem ser limpos após sincronização
   const cachesParaLimpar = [
@@ -1015,20 +924,16 @@ export const limparCachesParaReload = (): void => {
 
   cachesParaLimpar.forEach(cache => {
     localStorage.removeItem(cache);
-    console.log(`✓ Cache removido: ${cache}`);
   });
 
   // Limpar apenas erro de conectividade para permitir nova tentativa online
   localStorage.removeItem('last_connection_error');
-  
-  console.log('=== CACHES LIMPOS - PRÓXIMA BUSCA SERÁ ONLINE ===');
 };
 
 /**
  * Força limpeza de todos os dados offline (use com cuidado)
  */
 export const limparDadosOffline = (): void => {
-  console.log('=== INICIANDO LIMPEZA COMPLETA DOS DADOS OFFLINE ===');
   
   try {
     const todosOsCaches = [
@@ -1048,12 +953,10 @@ export const limparDadosOffline = (): void => {
       const existe = localStorage.getItem(cache) !== null;
       if (existe) {
         const tamanho = localStorage.getItem(cache)?.length || 0;
-        console.log(`LIMPEZA: Encontrado cache '${cache}' (${tamanho} chars)`);
       }
       return existe;
     });
 
-    console.log(`LIMPEZA: ${cachesExistentes.length} caches encontrados para remoção`);
 
     // Remover todos os caches
     let removidos = 0;
@@ -1066,11 +969,9 @@ export const limparDadosOffline = (): void => {
         
         if (existia) {
           removidos++;
-          console.log(`✓ Cache removido: ${cache}`);
         }
       } catch (error) {
         erros++;
-        console.error(`❌ Erro ao remover cache '${cache}':`, error);
       }
     });
 
@@ -1082,7 +983,6 @@ export const limparDadosOffline = (): void => {
       throw new Error(`Falha na limpeza: ${cachesRestantes.length} caches restantes`);
     }
 
-    console.log(`=== LIMPEZA CONCLUÍDA: ${removidos} caches removidos, ${erros} erros ===`);
     
   } catch (error) {
     console.error('ERRO CRÍTICO na limpeza dos dados offline:', error);
@@ -1237,7 +1137,6 @@ export const testarIntegridadeOffline = async (): Promise<{
   detalhes: string[];
   erros: string[];
 }> => {
-  console.log('=== INICIANDO TESTE DE INTEGRIDADE OFFLINE ===');
   
   const resultados = {
     cacheCompleto: false,
@@ -1321,13 +1220,6 @@ export const testarIntegridadeOffline = async (): Promise<{
 
     const sucessoGeral = Object.values(resultados).filter(r => r).length >= 3;
 
-    console.log('=== TESTE DE INTEGRIDADE CONCLUÍDO ===', {
-      sucessos: Object.values(resultados).filter(r => r).length,
-      total: Object.keys(resultados).length,
-      detalhes: detalhes.length,
-      erros: erros.length
-    });
-
     return {
       success: sucessoGeral,
       resultados,
@@ -1351,16 +1243,12 @@ export const testarIntegridadeOffline = async (): Promise<{
 // Listener para status de conexão
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
-    console.log('=== CONEXÃO RESTAURADA ===');
-    console.log('Sistema voltou online - dados offline podem ser sincronizados');
     
     // Limpar erro de conectividade
     localStorage.removeItem('last_connection_error');
   });
 
   window.addEventListener('offline', () => {
-    console.log('=== CONEXÃO PERDIDA ===');
-    console.log('Sistema entrou em modo offline - operações serão salvas localmente');
     
     // Marcar início do período offline
     localStorage.setItem('offline_since', Date.now().toString());
