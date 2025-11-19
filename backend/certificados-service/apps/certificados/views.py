@@ -88,10 +88,11 @@ def listar_eventos_participados(request):
         
         # Buscar presenças do usuário consultando diretamente o presença-service
         try:
-            # Usar nome do container para comunicação interna
+            # Usar IP externo para evitar problemas de DNS do container
             presencas_response = requests.get(
-                f'http://eventos_presenca:8004/api/presencas/usuario/{user_id}',
-                timeout=30  # Timeout aumentado para 30 segundos
+                f'http://177.44.248.89:8004/api/presencas/usuario/{user_id}',
+                timeout=30,  # Timeout aumentado para 30 segundos
+                headers={'Content-Type': 'application/json'}
             )
             
             if presencas_response.status_code != 200:

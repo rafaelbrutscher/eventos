@@ -14,7 +14,13 @@ SECRET_KEY = 'django-insecure-certificados-service-key-change-in-production'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '177.44.248.89', '0.0.0.0']
+# ALLOWED_HOSTS - configuração mais flexível
+ALLOWED_HOSTS_ENV = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,177.44.248.89,0.0.0.0,eventos_certificados,certificados-service')
+ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_ENV.split(',') if host.strip()]
+
+# Em desenvolvimento, permitir todos os hosts se DEBUG=True
+if DEBUG:
+    ALLOWED_HOSTS.append('*')
 
 # Application definition
 DJANGO_APPS = [

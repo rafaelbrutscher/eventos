@@ -230,26 +230,33 @@ class PresencaController extends Controller
                 // Não falha o check-in por causa do email
             }
 
-            // Gerar certificado automaticamente após check-in
+            // Gerar certificado automaticamente para TODAS as presenças (online e offline)
             Log::info('=== INICIANDO GERAÇÃO AUTOMÁTICA DE CERTIFICADO ===', [
                 'inscricao_id' => $inscricaoId,
                 'evento_id' => $eventoId,
+                'origem' => $origem,
                 'timestamp' => now()->toDateTimeString(),
                 'function' => 'checkin'
             ]);
 
             try {
                 $this->gerarCertificadoAutomatico($inscricaoId, $eventoId, $request->bearerToken());
+                Log::info('Certificado gerado com sucesso', [
+                    'inscricao_id' => $inscricaoId,
+                    'evento_id' => $eventoId,
+                    'origem' => $origem
+                ]);
             } catch (Exception $e) {
-                Log::warning('Falha ao gerar certificado automático', [
+                Log::warning('Falha ao gerar certificado automático - check-in continua normalmente', [
                     'service' => 'presenca-service',
                     'action' => 'certificado_automatico_falha',
                     'presenca_id' => $presenca->id,
                     'inscricao_id' => $inscricaoId,
                     'evento_id' => $eventoId,
+                    'origem' => $origem,
                     'error' => $e->getMessage()
                 ]);
-                // Não falha o check-in por causa do certificado
+                // IMPORTANTE: Não falha o check-in por causa do certificado
             }
 
             return response()->json([
@@ -486,13 +493,11 @@ class PresencaController extends Controller
                     ];
                 });
 
-            Log::info('Presenças encontradas:', [
-                'user_id' => $userId,
-                'total_presencas' => $presencas->count(),
-                'presencas_ids' => $presencas->pluck('id')->toArray()
-            ]);
-
-            return response()->json([
+        Log::info('Presenças encontradas:', [
+            'evento_id' => $eventoId,
+            'total_presencas' => $presencas->count(),
+            'presencas_ids' => $presencas->pluck('id')->toArray()
+        ]);            return response()->json([
                 'success' => true,
                 'data' => $presencas,
                 'total' => $presencas->count()
@@ -604,10 +609,9 @@ class PresencaController extends Controller
                 'inscricao_id' => $inscricaoId
             ]);
 
-            // Tentar gerar certificado com diferentes URLs (comunicação entre containers)
+            // Tentar gerar certificado (usar apenas IP externo para evitar problemas de DNS)
             $urls = [
-                'http://eventos_certificados:8000/api/gerar-certificado', // Nome do container + porta interna
-                'http://177.44.248.89:8005/api/gerar-certificado'        // IP externo como fallback
+                'http://177.44.248.89:8005/api/gerar-certificado'  // IP externo - mais confiável
             ];
 
             $response = null;
@@ -615,19 +619,36 @@ class PresencaController extends Controller
 
             foreach ($urls as $url) {
                 try {
-                    Log::info("Tentando gerar certificado na URL: {$url}");
-                    $response = Http::timeout(30)->post($url, [
+                    Log::info("Tentando gerar certificado na URL: {$url}", [
+                        'user_id' => $userId,
+                        'evento_id' => $eventoId,
+                        'inscricao_id' => $inscricaoId
+                    ]);
+
+                    $response = Http::timeout(45)->post($url, [
                         'user_id' => $userId,
                         'evento_id' => $eventoId
                     ]);
 
                     if ($response->successful()) {
-                        Log::info("Certificado gerado com sucesso na URL: {$url}");
+                        Log::info("Certificado gerado com sucesso na URL: {$url}", [
+                            'response_status' => $response->status(),
+                            'response_size' => strlen($response->body())
+                        ]);
                         break; // Sai do loop se funcionou
+                    } else {
+                        Log::warning("Resposta não bem-sucedida da URL {$url}", [
+                            'status_code' => $response->status(),
+                            'response_body' => substr($response->body(), 0, 500)
+                        ]);
                     }
                 } catch (Exception $urlException) {
                     $lastError = $urlException;
-                    Log::warning("Falha na URL {$url}: " . $urlException->getMessage());
+                    Log::warning("Falha na URL {$url}: " . $urlException->getMessage(), [
+                        'exception_type' => get_class($urlException),
+                        'user_id' => $userId,
+                        'evento_id' => $eventoId
+                    ]);
                     continue;
                 }
             }
@@ -733,7 +754,22 @@ class PresencaController extends Controller
                     ]);
 
                     // 4. Gerar certificado automático
-                    $this->gerarCertificadoAutomatico($inscricaoId, $cadastro['inscricao']['evento_id'], $request->bearerToken());
+                    try {
+                        $this->gerarCertificadoAutomatico($inscricaoId, $cadastro['inscricao']['evento_id'], $request->bearerToken());
+                        Log::info('Certificado gerado para cadastro offline sincronizado', [
+                            'inscricao_id' => $inscricaoId,
+                            'evento_id' => $cadastro['inscricao']['evento_id'],
+                            'usuario_nome' => $cadastro['usuario']['name']
+                        ]);
+                    } catch (Exception $e) {
+                        Log::warning('Falha ao gerar certificado para cadastro offline - continuando sincronização', [
+                            'inscricao_id' => $inscricaoId,
+                            'evento_id' => $cadastro['inscricao']['evento_id'],
+                            'usuario_nome' => $cadastro['usuario']['name'],
+                            'error' => $e->getMessage()
+                        ]);
+                        // Não falha a sincronização por causa do certificado
+                    }
 
                     $sucessos++;
                     $resultados[] = [
