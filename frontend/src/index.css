@@ -3,7 +3,6 @@
 /* 1. Importar a fonte Inter do Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-
 /* 2. Aplicar a fonte em todo o app */
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -14,4 +13,23 @@ body {
 /* Garante que o box-sizing seja consistente */
 * {
   box-sizing: border-box;
+}
+
+/* Animações para substituir Tailwind */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }

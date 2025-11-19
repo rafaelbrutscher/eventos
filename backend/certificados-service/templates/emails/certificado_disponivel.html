@@ -77,13 +77,13 @@
         <p>Seu certificado de participação está pronto e disponível para download!</p>
         
         <div class="certificate-info">
-            <h3>📋 Detalhes do Certificado</h3>
+            <h3>Detalhes do Certificado</h3>
             <p><strong>Evento:</strong> {{ certificado.evento_nome }}</p>
             <p><strong>Participante:</strong> {{ certificado.participante_nome }}</p>
             <p><strong>Data de Emissão:</strong> {{ certificado.created_at|date:"d/m/Y H:i" }}</p>
             
             <div class="validation-code">
-                <h4>🔒 Código de Validação</h4>
+                <h4>Código de Validação</h4>
                 <p style="font-family: monospace; font-size: 18px; font-weight: bold; margin: 0;">
                     {{ certificado.codigo_validacao }}
                 </p>
@@ -96,13 +96,13 @@
         {% if certificado.arquivo_pdf %}
         <div style="text-align: center; margin: 30px 0;">
             <a href="{{ certificado.arquivo_pdf.url }}" class="download-button">
-                📄 Baixar Certificado (PDF)
+                Baixar Certificado (PDF)
             </a>
         </div>
         {% endif %}
         
         <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 15px; margin: 20px 0;">
-            <h4>💡 Informações Importantes:</h4>
+            <h4>Informações Importantes:</h4>
             <ul>
                 <li><strong>Validade:</strong> Este certificado tem validade permanente</li>
                 <li><strong>Autenticidade:</strong> Pode ser validado usando o código acima</li>

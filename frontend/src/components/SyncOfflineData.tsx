@@ -94,7 +94,7 @@ export default function SyncOfflineData() {
           textDecoration: 'none'
         }}
       >
-        🔄 Sincronizar ({totalPendentes})
+        Sincronizar ({totalPendentes})
       </button>
     );
   }

@@ -79,7 +79,7 @@
         </div>
 
         <div class="note">
-            <p><strong>📝 Importante:</strong></p>
+            <p><strong>Importante:</strong></p>
             <ul>
                 <li>Sua vaga foi liberada e pode ser ocupada por outro participante</li>
                 <li>Caso deseje se inscrever novamente, verifique se ainda há vagas disponíveis</li>
