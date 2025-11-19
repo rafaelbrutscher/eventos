@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use Exception;
 
@@ -230,6 +231,13 @@ class PresencaController extends Controller
             }
 
             // Gerar certificado automaticamente após check-in
+            Log::info('=== INICIANDO GERAÇÃO AUTOMÁTICA DE CERTIFICADO ===', [
+                'inscricao_id' => $inscricaoId,
+                'evento_id' => $eventoId,
+                'timestamp' => now()->toDateTimeString(),
+                'function' => 'checkin'
+            ]);
+
             try {
                 $this->gerarCertificadoAutomatico($inscricaoId, $eventoId, $request->bearerToken());
             } catch (Exception $e) {
@@ -555,8 +563,16 @@ class PresencaController extends Controller
      */
     private function gerarCertificadoAutomatico($inscricaoId, $eventoId, $token)
     {
+        Log::info('=== EXECUTANDO gerarCertificadoAutomatico ===', [
+            'inscricao_id' => $inscricaoId,
+            'evento_id' => $eventoId,
+            'has_token' => !empty($token),
+            'timestamp' => now()->toDateTimeString()
+        ]);
+
         try {
             // Buscar dados da inscrição para obter o user_id
+            Log::info('Validando inscrição...', ['inscricao_id' => $inscricaoId]);
             $inscricaoResponse = $this->inscricoesService->validarInscricao($inscricaoId, $token);
 
             if (!$inscricaoResponse['success']) {
@@ -570,11 +586,16 @@ class PresencaController extends Controller
             $userId = $inscricaoResponse['data']['usuario_id'];
 
             // Chamar o serviço de certificados para gerar certificado
-            $certificadosServiceUrl = 'http://177.44.248.89:8005/api/gerar-certificado';
-
-            $response = Http::timeout(10)->post($certificadosServiceUrl, [
+            Log::info('Tentando gerar certificado automático...', [
+                'user_id' => $userId,
                 'evento_id' => $eventoId,
-                'user_id' => $userId
+                'inscricao_id' => $inscricaoId
+            ]);
+
+            // Tentar gerar certificado com timeout maior e URL do container
+            $response = Http::timeout(30)->post('http://localhost:8005/api/gerar-certificado', [
+                'user_id' => $userId,
+                'evento_id' => $eventoId
             ]);
 
             if ($response->successful()) {
