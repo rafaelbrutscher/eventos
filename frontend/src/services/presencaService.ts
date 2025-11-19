@@ -707,6 +707,34 @@ export const realizarCheckin = async (payload: CheckinPayload): Promise<CheckinR
 };
 
 /**
+ * Adiciona um cadastro offline para teste (função utilitária)
+ */
+export const adicionarCadastroOfflineTeste = (nome: string, email: string, eventoId: number): void => {
+  const cadastrosOffline = JSON.parse(localStorage.getItem('cadastrosOffline') || '[]');
+  
+  const novoCadastro = {
+    id: Date.now(),
+    usuario: {
+      name: nome,
+      email: email
+    },
+    inscricao: {
+      evento_id: eventoId
+    },
+    presenca: {
+      data_hora: new Date().toISOString().replace('T', ' ').substring(0, 19)
+    },
+    sincronizado: false,
+    criado_em: new Date().toISOString()
+  };
+  
+  cadastrosOffline.push(novoCadastro);
+  localStorage.setItem('cadastrosOffline', JSON.stringify(cadastrosOffline));
+  
+  console.log('✅ Cadastro offline adicionado para teste:', novoCadastro);
+};
+
+/**
  * Sincroniza cadastros offline completos (usuário + inscrição + presença)
  */
 export const sincronizarCadastrosOffline = async (): Promise<{
@@ -726,9 +754,39 @@ export const sincronizarCadastrosOffline = async (): Promise<{
   }
 
   const cadastrosOffline = JSON.parse(localStorage.getItem('cadastrosOffline') || '[]');
+  console.log('📦 Todos os cadastros offline:', cadastrosOffline);
+  
   const pendentes = cadastrosOffline.filter((c: any) => !c.sincronizado);
-
-  console.log(`SYNC_CADASTROS: ${pendentes.length} cadastros pendentes de sincronização`);
+  console.log(`📋 SYNC_CADASTROS: ${pendentes.length} cadastros pendentes de sincronização`);
+  
+  // Validar estrutura dos cadastros pendentes
+  for (let i = 0; i < pendentes.length; i++) {
+    const cadastro = pendentes[i];
+    console.log(`🔍 Validando cadastro ${i + 1}:`, cadastro);
+    
+    // Validações básicas
+    if (!cadastro.usuario) {
+      console.error(`❌ Cadastro ${i + 1}: falta objeto 'usuario'`);
+    }
+    if (!cadastro.usuario?.name) {
+      console.error(`❌ Cadastro ${i + 1}: falta 'usuario.name'`);
+    }
+    if (!cadastro.usuario?.email) {
+      console.error(`❌ Cadastro ${i + 1}: falta 'usuario.email'`);
+    }
+    if (!cadastro.inscricao) {
+      console.error(`❌ Cadastro ${i + 1}: falta objeto 'inscricao'`);
+    }
+    if (!cadastro.inscricao?.evento_id) {
+      console.error(`❌ Cadastro ${i + 1}: falta 'inscricao.evento_id'`);
+    }
+    if (!cadastro.presenca) {
+      console.error(`❌ Cadastro ${i + 1}: falta objeto 'presenca'`);
+    }
+    if (!cadastro.presenca?.data_hora) {
+      console.error(`❌ Cadastro ${i + 1}: falta 'presenca.data_hora'`);
+    }
+  }
 
   if (pendentes.length === 0) {
     return {
@@ -744,12 +802,23 @@ export const sincronizarCadastrosOffline = async (): Promise<{
   }
 
   try {
+    // Log detalhado dos dados enviados
+    console.log('=== DADOS ENVIADOS PARA SINCRONIZAÇÃO ===');
+    console.log('Total de cadastros pendentes:', pendentes.length);
+    console.log('Primeiro cadastro (exemplo):', JSON.stringify(pendentes[0], null, 2));
+    console.log('Estrutura completa dos pendentes:', pendentes);
+    
     // Usar endpoint único para sincronizar todos os cadastros
-    const { data } = await privateApi.post('/cadastro-rapido/offline-sync', {
+    const response = await privateApi.post('/cadastro-rapido/offline-sync', {
       cadastros: pendentes
     });
 
-    console.log('SYNC_CADASTROS: Resposta da sincronização:', data);
+    console.log('=== RESPOSTA DA SINCRONIZAÇÃO ===');
+    console.log('Status:', response.status);
+    console.log('Headers:', response.headers);
+    console.log('Data completa:', response.data);
+    
+    const { data } = response;
 
     if (data.success) {
       // Marcar todos como sincronizados

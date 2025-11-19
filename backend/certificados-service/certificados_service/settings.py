@@ -14,13 +14,27 @@ SECRET_KEY = 'django-insecure-certificados-service-key-change-in-production'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# ALLOWED_HOSTS - configuração mais flexível
-ALLOWED_HOSTS_ENV = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,177.44.248.89,0.0.0.0,eventos_certificados,certificados-service')
-ALLOWED_HOSTS = [host.strip() for host in ALLOWED_HOSTS_ENV.split(',') if host.strip()]
+# ALLOWED_HOSTS - configuração COMPLETA para Docker (PENTE FINO)
+ALLOWED_HOSTS_BASE = [
+    'localhost', '127.0.0.1', '0.0.0.0',
+    '177.44.248.89',  # IP do servidor
+    'eventos_certificados', 'certificados-service',  # Nomes dos containers
+    'eventos_certificados:8000', 'certificados-service:8000',  # Com porta
+    'eventos-certificados-service', 'eventos-certificados-service:8000',  # Variações
+    'certificados', 'certificados:8000',  # Nomes curtos
+    'django', 'django:8000'  # Fallbacks genéricos
+]
 
-# Em desenvolvimento, permitir todos os hosts se DEBUG=True
+# Adicionar hosts do ambiente
+ALLOWED_HOSTS_ENV = os.getenv('ALLOWED_HOSTS', '')
+if ALLOWED_HOSTS_ENV:
+    ALLOWED_HOSTS_BASE.extend([host.strip() for host in ALLOWED_HOSTS_ENV.split(',') if host.strip()])
+
+# Em desenvolvimento/produção com Docker, aceitar QUALQUER host
 if DEBUG:
-    ALLOWED_HOSTS.append('*')
+    ALLOWED_HOSTS = ['*']  # Aceita TUDO em desenvolvimento
+else:
+    ALLOWED_HOSTS = list(set(ALLOWED_HOSTS_BASE))  # Remove duplicatas
 
 # Application definition
 DJANGO_APPS = [
@@ -49,7 +63,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',  # DESABILITADO para APIs
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',

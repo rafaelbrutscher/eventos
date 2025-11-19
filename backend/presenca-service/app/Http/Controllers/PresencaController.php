@@ -230,24 +230,32 @@ class PresencaController extends Controller
                 // Não falha o check-in por causa do email
             }
 
-            // Tentar gerar certificado automaticamente (não-bloqueante)
-            // Se der timeout ou erro, o check-in continua normalmente
-            Log::info('Tentando gerar certificado automático', [
+            // 🎯 TENTAR GERAR CERTIFICADO AUTOMÁTICO (100% NÃO-BLOQUEANTE)
+            Log::info('🎯 Iniciando geração automática de certificado', [
+                'service' => 'presenca-service',
+                'action' => 'tentativa_certificado_automatico',
                 'inscricao_id' => $inscricaoId,
                 'evento_id' => $eventoId,
-                'origem' => $origem
+                'origem' => $origem,
+                'observacao' => 'Processo não-bloqueante - check-in já foi concluído com sucesso'
             ]);
 
             try {
+                // Timeout máximo de 15 segundos para toda a operação de certificado
+                set_time_limit(15);
                 $this->gerarCertificadoAutomatico($inscricaoId, $eventoId, $request->bearerToken());
             } catch (Exception $e) {
-                Log::info('Certificado não pôde ser gerado agora - check-in realizado com sucesso', [
+                Log::info('🚨 Certificado automático falhou - CHECK-IN REALIZADO COM SUCESSO', [
+                    'service' => 'presenca-service',
+                    'action' => 'certificado_automatico_falhou',
                     'inscricao_id' => $inscricaoId,
                     'evento_id' => $eventoId,
                     'origem' => $origem,
-                    'motivo' => 'Serviço temporariamente indisponível'
+                    'error_type' => get_class($e),
+                    'error_message' => $e->getMessage(),
+                    'resultado' => 'CHECK-IN FOI CONCLUÍDO - certificado pode ser gerado manualmente depois'
                 ]);
-                // Silenciosamente ignora o erro - certificado pode ser gerado depois
+                // NUNCA lança exceção - o check-in é sempre válido
             }
 
             return response()->json([
@@ -260,6 +268,10 @@ class PresencaController extends Controller
                     'data_hora' => $presenca->data_hora->format('Y-m-d H:i:s'),
                     'origem' => $presenca->origem,
                     'operador_usuario_id' => $presenca->operador_usuario_id
+                ],
+                'certificado' => [
+                    'status' => 'processando_automaticamente',
+                    'observacao' => 'Certificado será gerado automaticamente em segundo plano'
                 ]
             ], 201);
 
@@ -600,13 +612,22 @@ class PresencaController extends Controller
                 'inscricao_id' => $inscricaoId
             ]);
 
-            // URLs para tentar gerar certificado - usando nomes dos containers Docker
             $urls = [
-                'http://eventos_certificados:8000/api/gerar-certificado',  // Container interno Docker
-                'http://eventos_certificados:8000/api/gerar-certificado/', // Container com barra final
-                'http://127.0.0.1:8005/api/gerar-certificado',             // Localhost fallback
-                'http://localhost:8005/api/gerar-certificado',             // Localhost alternativo
-                'http://177.44.248.89:8005/api/gerar-certificado'          // IP externo (último recurso)
+                // Prioridade 1: Container Docker interno (mais rápido)
+                'http://eventos_certificados:8000/api/gerar-certificado',
+                'http://eventos_certificados:8000/api/gerar-certificado/',
+
+                // Prioridade 2: Nomes alternativos do container
+                'http://certificados-service:8000/api/gerar-certificado',
+                'http://certificados:8000/api/gerar-certificado',
+
+                // Prioridade 3: Localhost (fallback local)
+                'http://127.0.0.1:8005/api/gerar-certificado',
+                'http://localhost:8005/api/gerar-certificado',
+
+                // Prioridade 4: IP externo (mais lento, último recurso)
+                'http://177.44.248.89:8005/api/gerar-certificado',
+                'http://177.44.248.89:8005/api/gerar-certificado/'
             ];
 
             $response = null;
@@ -622,81 +643,163 @@ class PresencaController extends Controller
                         'payload' => ['user_id' => $userId, 'evento_id' => $eventoId]
                     ]);
 
-                    // Timeout menor para não travar muito
-                    $response = Http::timeout(5)
+                    // Timeout progressivo: menos tempo para URLs Docker, mais para externos
+                    $timeout = (strpos($url, 'eventos_certificados') !== false || strpos($url, 'certificados') !== false) ? 3 : 8;
+
+                    Log::info("🔄 Tentativa de certificado", [
+                        'url' => $url,
+                        'timeout' => $timeout,
+                        'user_id' => $userId,
+                        'evento_id' => $eventoId
+                    ]);
+
+                    $response = Http::timeout($timeout)
+                        ->retry(2, 100)  // 2 tentativas com 100ms entre elas
                         ->withHeaders([
                             'Content-Type' => 'application/json',
-                            'Accept' => 'application/json'
+                            'Accept' => 'application/json',
+                            'X-Requested-With' => 'XMLHttpRequest'
+                        ])
+                        ->withOptions([
+                            'verify' => false,  // Ignora SSL em desenvolvimento
+                            'http_errors' => false  // Não lança exceção em HTTP 4xx/5xx
                         ])
                         ->post($url, [
                             'user_id' => $userId,
                             'evento_id' => $eventoId
-                        ]);                    Log::info("RESPOSTA RECEBIDA", [
+                        ]);                    // LOGGING ULTRA DETALHADO DA RESPOSTA
+                    $responseBody = $response->body();
+                    $responseData = null;
+
+                    try {
+                        $responseData = $response->json();
+                    } catch (Exception $jsonException) {
+                        Log::warning("⚠️ Resposta não é JSON válido", [
+                            'url' => $url,
+                            'body_preview' => substr($responseBody, 0, 200)
+                        ]);
+                    }
+
+                    Log::info("💬 RESPOSTA DETALHADA RECEBIDA", [
                         'url' => $url,
                         'status_code' => $response->status(),
-                        'headers' => $response->headers(),
-                        'response_body' => substr($response->body(), 0, 1000),
-                        'successful' => $response->successful()
+                        'successful' => $response->successful(),
+                        'response_size' => strlen($responseBody),
+                        'content_type' => $response->header('Content-Type'),
+                        'response_data' => $responseData,
+                        'response_body_preview' => substr($responseBody, 0, 500)
                     ]);
 
-                    if ($response->successful()) {
-                        Log::info("✅ CERTIFICADO GERADO COM SUCESSO!", [
+                    if ($response->successful() && $responseData && isset($responseData['success']) && $responseData['success']) {
+                        Log::info("✅ CERTIFICADO GERADO COM SUCESSO TOTAL!", [
                             'url' => $url,
                             'user_id' => $userId,
                             'evento_id' => $eventoId,
-                            'response_data' => $response->json()
+                            'certificado_id' => $responseData['data']['id'] ?? 'N/A',
+                            'codigo_certificado' => $responseData['data']['codigo'] ?? 'N/A',
+                            'participante' => $responseData['data']['participante_nome'] ?? 'N/A'
                         ]);
-                        break; // Sai do loop se funcionou
+                        break; // SUCESSO! Sai do loop
                     } else {
-                        Log::warning("❌ Resposta não bem-sucedida", [
+                        $errorDetails = [
                             'url' => $url,
                             'status_code' => $response->status(),
-                            'response_body' => $response->body()
-                        ]);
+                            'is_successful' => $response->successful(),
+                            'response_has_success' => isset($responseData['success']),
+                            'response_success_value' => $responseData['success'] ?? 'N/A',
+                            'response_message' => $responseData['message'] ?? 'N/A',
+                            'full_response' => $responseData
+                        ];
+
+                        if ($response->status() >= 500) {
+                            Log::error("🔥 ERRO DE SERVIDOR (5xx)", $errorDetails);
+                        } elseif ($response->status() >= 400) {
+                            Log::warning("⚠️ ERRO DE CLIENTE (4xx)", $errorDetails);
+                        } else {
+                            Log::warning("❌ Resposta inesperada", $errorDetails);
+                        }
                     }
                 } catch (Exception $urlException) {
                     $lastError = $urlException;
-                    Log::error("❌ EXCEÇÃO na URL {$url}", [
-                        'exception_type' => get_class($urlException),
+
+                    $errorType = get_class($urlException);
+                    $isTimeoutError = (strpos($urlException->getMessage(), 'timeout') !== false ||
+                                     strpos($urlException->getMessage(), 'Connection timed out') !== false);
+                    $isConnectionError = (strpos($urlException->getMessage(), 'Connection') !== false);
+
+                    Log::error("🔥 EXCEÇÃO DETALHADA na URL {$url}", [
+                        'exception_type' => $errorType,
                         'exception_message' => $urlException->getMessage(),
+                        'is_timeout' => $isTimeoutError,
+                        'is_connection_error' => $isConnectionError,
                         'user_id' => $userId,
                         'evento_id' => $eventoId,
-                        'stack_trace' => $urlException->getTraceAsString()
+                        'timeout_usado' => $timeout,
+                        'url_tentativa' => $url,
+                        'file' => $urlException->getFile(),
+                        'line' => $urlException->getLine()
                     ]);
-                    continue;
+
+                    // Se for timeout em URLs Docker, tentar próxima URL mais rapidamente
+                    if ($isTimeoutError && strpos($url, 'eventos_certificados') !== false) {
+                        Log::info('⏩ Timeout em container Docker - tentando próxima URL rapidamente');
+                    }
+
+                    continue; // Tenta próxima URL
                 }
             }
 
+            // AVALIAÇÃO FINAL - NUNCA QUEBRA O CHECK-IN
             if (!$response || !$response->successful()) {
-                Log::warning('Serviço de certificados indisponível - check-in continua normalmente', [
+                Log::warning('🚨 CERTIFICADO NÃO GERADO - CHECK-IN CONTINUA NORMAL', [
                     'inscricao_id' => $inscricaoId,
                     'evento_id' => $eventoId,
                     'user_id' => $userId,
-                    'last_error' => $lastError ? $lastError->getMessage() : 'Nenhuma resposta válida'
+                    'urls_tentadas' => count($urls),
+                    'last_error_type' => $lastError ? get_class($lastError) : 'Sem erro específico',
+                    'last_error_message' => $lastError ? $lastError->getMessage() : 'Nenhuma resposta válida',
+                    'last_response_status' => $response ? $response->status() : 'Sem resposta',
+                    'motivo' => 'Serviço temporáriamente indisponível - certificado pode ser gerado manualmente depois'
                 ]);
-                return; // Sai silenciosamente sem quebrar o check-in
+
+                return;
             }
 
-            // Se chegou aqui, certificado foi gerado com sucesso
-            $responseData = $response->json();
+            try {
+                $responseData = $response->json();
 
-            Log::info('Certificado gerado automaticamente', [
+                Log::info('🎆 CERTIFICADO GERADO AUTOMATICAMENTE COM SUCESSO TOTAL!', [
+                    'service' => 'presenca-service',
+                    'action' => 'certificado_automatico_gerado',
+                    'inscricao_id' => $inscricaoId,
+                    'evento_id' => $eventoId,
+                    'user_id' => $userId,
+                    'certificado_id' => $responseData['data']['id'] ?? 'N/A',
+                    'codigo_certificado' => $responseData['data']['codigo'] ?? 'N/A',
+                    'participante_nome' => $responseData['data']['participante_nome'] ?? 'N/A',
+                    'response_status' => $response->status(),
+                    'url_sucesso' => $response->effectiveUri() ?? 'N/A'
+                ]);
+            } catch (Exception $jsonEx) {
+                Log::warning('Certificado gerado mas resposta não é JSON válido', [
+                    'response_body' => substr($response->body(), 0, 200),
+                    'status' => $response->status()
+                ]);
+            }        } catch (Exception $e) {
+            // ERRO CRÍTICO - MAS CHECK-IN JÁ FOI REALIZADO
+            Log::error('🔥 ERRO CRÍTICO na geração automática de certificado', [
                 'service' => 'presenca-service',
-                'action' => 'certificado_automatico_gerado',
+                'action' => 'erro_critico_certificado_automatico',
                 'inscricao_id' => $inscricaoId,
                 'evento_id' => $eventoId,
-                'user_id' => $userId,
-                'certificado_id' => $responseData['data']['id'] ?? null,
-                'response_status' => $response->status()
+                'error_type' => get_class($e),
+                'error_message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'observacao' => 'CHECK-IN FOI REALIZADO COM SUCESSO - apenas o certificado automático falhou'
             ]);
 
-        } catch (Exception $e) {
-            Log::error('Erro ao gerar certificado automático', [
-                'inscricao_id' => $inscricaoId,
-                'evento_id' => $eventoId,
-                'error' => $e->getMessage(),
-                'stack_trace' => $e->getTraceAsString()
-            ]);
+            // IMPORTANTE: NÃO lança exceção - o check-in já foi concluído com sucesso
         }
     }
 
@@ -706,75 +809,194 @@ class PresencaController extends Controller
     public function sincronizarCadastrosOffline(Request $request)
     {
         try {
+            Log::info('🔄 INICIANDO SINCRONIZAÇÃO DE CADASTROS OFFLINE', [
+                'service' => 'presenca-service',
+                'action' => 'sincronizar_cadastros_offline',
+                'request_data' => $request->all(),
+                'user_id' => $request->user()->id ?? 'N/A'
+            ]);
+
+            // Validação com mais flexibilidade
             $validated = $request->validate([
-                'cadastros' => 'required|array',
+                'cadastros' => 'required|array|min:1',
                 'cadastros.*.usuario' => 'required|array',
-                'cadastros.*.usuario.name' => 'required|string',
-                'cadastros.*.usuario.email' => 'required|email',
+                'cadastros.*.usuario.name' => 'required|string|max:255',
+                'cadastros.*.usuario.email' => 'required|email|max:255',
                 'cadastros.*.inscricao' => 'required|array',
-                'cadastros.*.inscricao.evento_id' => 'required|integer',
+                'cadastros.*.inscricao.evento_id' => 'required|integer|min:1',
                 'cadastros.*.presenca' => 'required|array',
                 'cadastros.*.presenca.data_hora' => 'required|string'
+            ]);
+
+            Log::info('📋 DADOS VALIDADOS COM SUCESSO', [
+                'total_cadastros' => count($validated['cadastros']),
+                'primeiro_cadastro_exemplo' => $validated['cadastros'][0] ?? 'N/A'
             ]);
 
             $resultados = [];
             $sucessos = 0;
             $falhas = 0;
 
-            foreach ($validated['cadastros'] as $cadastro) {
+            foreach ($validated['cadastros'] as $index => $cadastro) {
                 try {
-                    Log::info('Processando cadastro offline:', $cadastro['usuario']);
+                    Log::info('👤 PROCESSANDO CADASTRO OFFLINE', [
+                        'indice' => $index + 1,
+                        'total' => count($validated['cadastros']),
+                        'usuario_nome' => $cadastro['usuario']['name'],
+                        'usuario_email' => $cadastro['usuario']['email'],
+                        'evento_id' => $cadastro['inscricao']['evento_id']
+                    ]);
 
-                    // 1. Criar usuário
-                    $responseUsuario = Http::withToken($request->bearerToken())
-                        ->timeout(10)
-                        ->post('http://177.44.248.89:8001/api/cadastro-rapido', [
-                            'name' => $cadastro['usuario']['name'],
-                            'email' => $cadastro['usuario']['email'],
-                        ]);
+                    // 1. Criar usuário com múltiplas URLs de fallback
+                    $urlsAuth = [
+                        'http://eventos_auth:8000/api/cadastro-rapido',
+                        'http://127.0.0.1:8001/api/cadastro-rapido',
+                        'http://177.44.248.89:8001/api/cadastro-rapido'
+                    ];
 
-                    if (!$responseUsuario->successful()) {
-                        throw new Exception('Falha ao criar usuário: ' . $responseUsuario->body());
+                    $responseUsuario = null;
+                    $lastAuthError = null;
+
+                    foreach ($urlsAuth as $authUrl) {
+                        try {
+                            Log::info('🔗 TENTANDO CRIAR USUÁRIO', ['url' => $authUrl]);
+
+                            $responseUsuario = Http::withToken($request->bearerToken())
+                                ->timeout(8)
+                                ->retry(2, 100)
+                                ->post($authUrl, [
+                                    'name' => $cadastro['usuario']['name'],
+                                    'email' => $cadastro['usuario']['email'],
+                                ]);
+
+                            if ($responseUsuario->successful()) {
+                                Log::info('USUÁRIO CRIADO COM SUCESSO', ['url' => $authUrl]);
+                                break;
+                            } else {
+                                Log::warning('❌ Falha na URL', [
+                                    'url' => $authUrl,
+                                    'status' => $responseUsuario->status(),
+                                    'body' => substr($responseUsuario->body(), 0, 200)
+                                ]);
+                            }
+                        } catch (Exception $e) {
+                            $lastAuthError = $e;
+                            Log::error('EXCEÇÃO na criação de usuário', [
+                                'url' => $authUrl,
+                                'error' => $e->getMessage()
+                            ]);
+                            continue;
+                        }
+                    }
+
+                    if (!$responseUsuario || !$responseUsuario->successful()) {
+                        throw new Exception('Falha ao criar usuário em todas as URLs. Último erro: ' . ($lastAuthError ? $lastAuthError->getMessage() : $responseUsuario->body()));
                     }
 
                     $dadosUsuario = $responseUsuario->json();
-                    $usuarioId = $dadosUsuario['data']['user']['id'];
+                    $usuarioId = $dadosUsuario['data']['user']['id'] ?? null;
 
-                    // 2. Criar inscrição
-                    $responseInscricao = Http::withToken($request->bearerToken())
-                        ->timeout(10)
-                        ->post('http://177.44.248.89:8003/api/inscricoes', [
-                            'usuario_id' => $usuarioId,
-                            'evento_id' => $cadastro['inscricao']['evento_id'],
-                            'status_inscricao' => 'confirmado'
-                        ]);
+                    if (!$usuarioId) {
+                        throw new Exception('ID do usuário não retornado na resposta: ' . json_encode($dadosUsuario));
+                    }
 
-                    if (!$responseInscricao->successful()) {
-                        throw new Exception('Falha ao criar inscrição: ' . $responseInscricao->body());
+                    Log::info('👤 USUÁRIO CRIADO', ['usuario_id' => $usuarioId]);
+
+                    // 2. Criar inscrição com múltiplas URLs
+                    $urlsInscricoes = [
+                        'http://eventos_inscricoes:8000/api/inscricoes',
+                        'http://127.0.0.1:8003/api/inscricoes',
+                        'http://177.44.248.89:8003/api/inscricoes'
+                    ];
+
+                    $responseInscricao = null;
+                    $lastInscricaoError = null;
+
+                    foreach ($urlsInscricoes as $inscricaoUrl) {
+                        try {
+                            Log::info('TENTANDO CRIAR INSCRIÇÃO', ['url' => $inscricaoUrl]);
+
+                            $responseInscricao = Http::withToken($request->bearerToken())
+                                ->timeout(8)
+                                ->retry(2, 100)
+                                ->post($inscricaoUrl, [
+                                    'usuario_id' => $usuarioId,
+                                    'evento_id' => $cadastro['inscricao']['evento_id'],
+                                    'status_inscricao' => 'confirmado'
+                                ]);
+
+                            if ($responseInscricao->successful()) {
+                                Log::info('INSCRIÇÃO CRIADA COM SUCESSO', ['url' => $inscricaoUrl]);
+                                break;
+                            } else {
+                                Log::warning('Falha na URL de inscrição', [
+                                    'url' => $inscricaoUrl,
+                                    'status' => $responseInscricao->status(),
+                                    'body' => substr($responseInscricao->body(), 0, 200)
+                                ]);
+                            }
+                        } catch (Exception $e) {
+                            $lastInscricaoError = $e;
+                            Log::error('EXCEÇÃO na criação de inscrição', [
+                                'url' => $inscricaoUrl,
+                                'error' => $e->getMessage()
+                            ]);
+                            continue;
+                        }
+                    }
+
+                    if (!$responseInscricao || !$responseInscricao->successful()) {
+                        throw new Exception('Falha ao criar inscrição em todas as URLs. Último erro: ' . ($lastInscricaoError ? $lastInscricaoError->getMessage() : $responseInscricao->body()));
                     }
 
                     $dadosInscricao = $responseInscricao->json();
-                    $inscricaoId = $dadosInscricao['data']['id'];
+                    $inscricaoId = $dadosInscricao['data']['id'] ?? null;
+
+                    if (!$inscricaoId) {
+                        throw new Exception('ID da inscrição não retornado na resposta: ' . json_encode($dadosInscricao));
+                    }
+
+                    Log::info('📝 INSCRIÇÃO CRIADA', ['inscricao_id' => $inscricaoId]);
 
                     // 3. Criar presença
+                    $dataHora = $cadastro['presenca']['data_hora'];
+
+                    // Converter data/hora se necessário
+                    if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $dataHora)) {
+                        try {
+                            $dataHora = date('Y-m-d H:i:s', strtotime($dataHora));
+                        } catch (Exception $e) {
+                            $dataHora = date('Y-m-d H:i:s'); // Usar agora se não conseguir converter
+                            Log::warning('Data/hora inválida, usando timestamp atual', [
+                                'data_original' => $cadastro['presenca']['data_hora'],
+                                'data_convertida' => $dataHora
+                            ]);
+                        }
+                    }
+
                     $presenca = Presenca::create([
                         'inscricao_id' => $inscricaoId,
                         'evento_id' => $cadastro['inscricao']['evento_id'],
-                        'data_hora' => $cadastro['presenca']['data_hora'],
+                        'data_hora' => $dataHora,
                         'origem' => 'cadastro_rapido_sync',
-                        'operador_usuario_id' => $request->user()->id
+                        'operador_usuario_id' => $request->user()->id ?? 1
                     ]);
 
-                    // 4. Tentar gerar certificado (não-bloqueante)
+                    Log::info('✅ PRESENÇA CRIADA', ['presenca_id' => $presenca->id]);
+
+                    // 4. Tentar gerar certificado (100% não-bloqueante)
                     try {
+                        Log::info('TENTANDO GERAR CERTIFICADO AUTOMÁTICO');
                         $this->gerarCertificadoAutomatico($inscricaoId, $cadastro['inscricao']['evento_id'], $request->bearerToken());
+                        Log::info('CERTIFICADO GERADO OU PROCESSADO');
                     } catch (Exception $e) {
-                        Log::info('Certificado será gerado posteriormente para cadastro rápido', [
+                        Log::info('CERTIFICADO SERÁ GERADO POSTERIORMENTE', [
                             'inscricao_id' => $inscricaoId,
                             'evento_id' => $cadastro['inscricao']['evento_id'],
-                            'usuario_nome' => $cadastro['usuario']['name']
+                            'usuario_nome' => $cadastro['usuario']['name'],
+                            'motivo' => $e->getMessage()
                         ]);
-                        // Sincronização continua normalmente
+                        // Sincronização continua normalmente - certificado é opcional
                     }
 
                     $sucessos++;
@@ -784,58 +1006,114 @@ class PresencaController extends Controller
                         'status' => 'sucesso',
                         'usuario_id' => $usuarioId,
                         'inscricao_id' => $inscricaoId,
-                        'presenca_id' => $presenca->id
+                        'presenca_id' => $presenca->id,
+                        'data_sincronizacao' => now()->toISOString()
                     ];
 
-                    Log::info('Cadastro sincronizado com sucesso:', [
+                    Log::info('🎉 CADASTRO SINCRONIZADO COM SUCESSO TOTAL!', [
+                        'indice' => $index + 1,
                         'nome' => $cadastro['usuario']['name'],
+                        'email' => $cadastro['usuario']['email'],
                         'usuario_id' => $usuarioId,
-                        'inscricao_id' => $inscricaoId
+                        'inscricao_id' => $inscricaoId,
+                        'presenca_id' => $presenca->id,
+                        'evento_id' => $cadastro['inscricao']['evento_id']
                     ]);
 
                 } catch (Exception $e) {
                     $falhas++;
                     $resultados[] = [
-                        'nome' => $cadastro['usuario']['name'],
-                        'email' => $cadastro['usuario']['email'],
+                        'nome' => $cadastro['usuario']['name'] ?? 'N/A',
+                        'email' => $cadastro['usuario']['email'] ?? 'N/A',
                         'status' => 'erro',
-                        'erro' => $e->getMessage()
+                        'erro' => $e->getMessage(),
+                        'erro_detalhado' => [
+                            'tipo' => get_class($e),
+                            'arquivo' => $e->getFile(),
+                            'linha' => $e->getLine(),
+                            'stack_trace' => $e->getTraceAsString()
+                        ],
+                        'data_erro' => now()->toISOString()
                     ];
 
-                    Log::error('Erro ao sincronizar cadastro:', [
-                        'nome' => $cadastro['usuario']['name'],
-                        'error' => $e->getMessage()
+                    Log::error('💥 ERRO DETALHADO AO SINCRONIZAR CADASTRO', [
+                        'indice' => $index + 1,
+                        'nome' => $cadastro['usuario']['name'] ?? 'N/A',
+                        'email' => $cadastro['usuario']['email'] ?? 'N/A',
+                        'evento_id' => $cadastro['inscricao']['evento_id'] ?? 'N/A',
+                        'error_type' => get_class($e),
+                        'error_message' => $e->getMessage(),
+                        'error_file' => $e->getFile(),
+                        'error_line' => $e->getLine(),
+                        'cadastro_completo' => $cadastro
                     ]);
                 }
             }
 
+            Log::info('🎆 SINCRONIZAÇÃO DE CADASTROS CONCLUÍDA', [
+                'total_processados' => count($validated['cadastros']),
+                'sucessos' => $sucessos,
+                'falhas' => $falhas,
+                'percentual_sucesso' => round(($sucessos / count($validated['cadastros'])) * 100, 2) . '%'
+            ]);
+
             return response()->json([
-                'success' => true,
-                'message' => "Sincronização concluída: {$sucessos} sucessos, {$falhas} falhas",
+                'success' => $sucessos > 0, // Considera sucesso se pelo menos um foi sincronizado
+                'message' => "Sincronização concluída: {$sucessos} sucessos, {$falhas} falhas de " . count($validated['cadastros']) . " cadastros",
                 'data' => [
                     'total_processados' => count($validated['cadastros']),
                     'sucessos' => $sucessos,
                     'falhas' => $falhas,
-                    'resultados' => $resultados
+                    'percentual_sucesso' => round(($sucessos / count($validated['cadastros'])) * 100, 2),
+                    'resultados' => $resultados,
+                    'timestamp' => now()->toISOString(),
+                    'processado_por' => $request->user()->name ?? 'Sistema'
                 ]
             ]);
 
         } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Dados de entrada inválidos',
-                'errors' => $e->errors()
-            ], 422);
-
-        } catch (Exception $e) {
-            Log::error('Erro na sincronização de cadastros offline:', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+            Log::error('❌ ERRO DE VALIDAÇÃO na sincronização de cadastros', [
+                'validation_errors' => $e->errors(),
+                'request_data' => $request->all(),
+                'user_id' => $request->user()->id ?? 'N/A'
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Erro interno do servidor: ' . $e->getMessage()
+                'message' => 'Dados de entrada inválidos para sincronização',
+                'errors' => $e->errors(),
+                'debug_info' => [
+                    'total_cadastros_enviados' => is_array($request->input('cadastros')) ? count($request->input('cadastros')) : 0,
+                    'estrutura_esperada' => [
+                        'cadastros' => [
+                            'usuario' => ['name' => 'string', 'email' => 'email'],
+                            'inscricao' => ['evento_id' => 'integer'],
+                            'presenca' => ['data_hora' => 'datetime string']
+                        ]
+                    ]
+                ]
+            ], 422);
+
+        } catch (Exception $e) {
+            Log::error('ERRO CRÍTICO na sincronização de cadastros offline', [
+                'error_type' => get_class($e),
+                'error_message' => $e->getMessage(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'request_data' => $request->all(),
+                'user_id' => $request->user()->id ?? 'N/A',
+                'stack_trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro crítico na sincronização de cadastros offline',
+                'error' => $e->getMessage(),
+                'debug_info' => [
+                    'error_type' => get_class($e),
+                    'timestamp' => now()->toISOString(),
+                    'suporte' => 'Verifique os logs do servidor para mais detalhes'
+                ]
             ], 500);
         }
     }
