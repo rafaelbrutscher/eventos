@@ -600,10 +600,13 @@ class PresencaController extends Controller
                 'inscricao_id' => $inscricaoId
             ]);
 
-            // URLs para tentar gerar certificado
+            // URLs para tentar gerar certificado - usando nomes dos containers Docker
             $urls = [
-                'http://177.44.248.89:8005/api/gerar-certificado',  // Endpoint automático
-                'http://177.44.248.89:8005/api/gerar-certificado/'  // Com barra final
+                'http://eventos_certificados:8000/api/gerar-certificado',  // Container interno Docker
+                'http://eventos_certificados:8000/api/gerar-certificado/', // Container com barra final
+                'http://127.0.0.1:8005/api/gerar-certificado',             // Localhost fallback
+                'http://localhost:8005/api/gerar-certificado',             // Localhost alternativo
+                'http://177.44.248.89:8005/api/gerar-certificado'          // IP externo (último recurso)
             ];
 
             $response = null;
@@ -619,8 +622,8 @@ class PresencaController extends Controller
                         'payload' => ['user_id' => $userId, 'evento_id' => $eventoId]
                     ]);
 
-                    // Timeout baixo mas suficiente para debug
-                    $response = Http::timeout(10)
+                    // Timeout menor para não travar muito
+                    $response = Http::timeout(5)
                         ->withHeaders([
                             'Content-Type' => 'application/json',
                             'Accept' => 'application/json'
