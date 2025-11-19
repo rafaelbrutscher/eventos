@@ -17,6 +17,37 @@ import {
 import { getEvents } from '../services/eventService';
 import { OfflineStatus } from '../components/OfflineStatus';
 
+// Função para determinar origem e qualidade dos dados
+function determinarOrigemDados(response: any, isOnline: boolean): { 
+  type: 'success' | 'warning' | 'error', 
+  message: string 
+} {
+  if (!isOnline) {
+    // Verificar qual cache foi usado
+    const hasCache = response.data?.inscritos?.some((i: any) => i.origem === 'cache');
+    const hasCadastroRapido = response.data?.inscritos?.some((i: any) => i.origem === 'cadastro_rapido_offline');
+    
+    let message = 'OFFLINE: Dados do cache local.';
+    
+    if (hasCadastroRapido) {
+      message += ' Inclui cadastros offline pendentes.';
+    }
+    
+    message += ' Sincronize quando possível.';
+    
+    return {
+      type: 'warning',
+      message
+    };
+  }
+
+  // Online - dados do servidor
+  return {
+    type: 'success',
+    message: 'ONLINE: Dados atualizados do servidor.'
+  };
+}
+
 // Componente para dashboard offline
 function OfflineDashboard() {
   const [statusOffline, setStatusOffline] = useState<any>({});
@@ -146,14 +177,33 @@ function OfflineDashboard() {
           </button>
           <button
             onClick={() => {
-              if (window.confirm('Limpar todos os dados offline? Esta ação não pode ser desfeita.')) {
-                limparDadosOffline();
-                window.location.reload();
+              const confirmacao = window.confirm(
+                'ATENÇÃO: Esta ação irá limpar TODOS os dados offline:\n\n' +
+                '• Cache de eventos e participantes\n' +
+                '• Cadastros offline pendentes\n' +
+                '• Check-ins offline pendentes\n' +
+                '• Configurações de sincronização\n\n' +
+                'Todos os dados não sincronizados serão PERDIDOS.\n\n' +
+                'Tem certeza que deseja continuar?'
+              );
+              
+              if (confirmacao) {
+                try {
+                  limparDadosOffline();
+                  alert('Dados offline limpos com sucesso!');
+                  // Recarregar a página para refletir as mudanças
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 500);
+                } catch (error) {
+                  console.error('Erro ao limpar dados offline:', error);
+                  alert('Erro ao limpar dados offline. Verifique o console.');
+                }
               }
             }}
             className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
           >
-            Limpar
+            Limpar Cache
           </button>
         </div>
       </div>
@@ -274,17 +324,14 @@ export function CheckIn() {
             }
           });
 
-          // Verificar se veio do cache
-          if (!navigator.onLine) {
-            setMessage({
-              type: 'warning',
-              text: `Dados carregados do cache offline (${response.data.inscritos.length} participantes). Pode não estar atualizado.`
-            });
-          } else {
-            setMessage({
-              type: 'success',
-              text: `Lista carregada com sucesso! ${response.data.inscritos.length} participantes encontrados.`
-            });
+          // Determinar origem dos dados e qualidade
+          const origemDados = determinarOrigemDados(response, navigator.onLine);
+          setMessage({
+            type: origemDados.type as 'success' | 'warning' | 'error',
+            text: `${origemDados.message} ${response.data.inscritos.length} participantes encontrados.`
+          });
+
+          if (origemDados.type === 'success') {
             setTimeout(() => setMessage(null), 3000);
           }
         } catch (error: any) {

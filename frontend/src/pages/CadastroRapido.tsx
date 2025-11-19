@@ -196,17 +196,12 @@ export function CadastroRapido() {
     setLoading(false);
   };
 
-  // Função para adicionar o novo inscrito ao cache local imediatamente
+  // Função para adicionar o novo inscrito ao cache local imediatamente (TODOS os caches)
   const adicionarAoCacheLocal = (cadastroCompleto: any) => {
     try {
-      // Adicionar aos inscritos do evento no cache
-      const inscritosPorEvento = JSON.parse(localStorage.getItem('inscritosPorEvento') || '{}');
+      console.log('=== ATUALIZANDO TODOS OS CACHES COM NOVO CADASTRO ===');
       
-      if (!inscritosPorEvento[cadastroCompleto.inscricao.evento_id]) {
-        inscritosPorEvento[cadastroCompleto.inscricao.evento_id] = [];
-      }
-      
-      // Criar objeto inscrito compatível com o formato esperado
+      // Criar objeto inscrito padronizado
       const novoInscrito = {
         inscricao_id: cadastroCompleto.inscricao.id,
         usuario_id: cadastroCompleto.usuario.id,
@@ -219,38 +214,101 @@ export function CadastroRapido() {
         data_inscricao: cadastroCompleto.inscricao.data_inscricao,
         origem: 'cadastro_rapido_offline'
       };
+
+      // 1. Atualizar inscritosPorEvento (cache do cadastro rápido)
+      const inscritosPorEvento = JSON.parse(localStorage.getItem('inscritosPorEvento') || '{}');
+      if (!inscritosPorEvento[cadastroCompleto.inscricao.evento_id]) {
+        inscritosPorEvento[cadastroCompleto.inscricao.evento_id] = [];
+      }
       
-      inscritosPorEvento[cadastroCompleto.inscricao.evento_id].push(novoInscrito);
-      localStorage.setItem('inscritosPorEvento', JSON.stringify(inscritosPorEvento));
+      // Verificar se já existe (evitar duplicatas)
+      const jaExiste = inscritosPorEvento[cadastroCompleto.inscricao.evento_id].find(
+        (i: any) => i.email === novoInscrito.email
+      );
       
-      // Também atualizar o cache do presencaService
+      if (!jaExiste) {
+        inscritosPorEvento[cadastroCompleto.inscricao.evento_id].push(novoInscrito);
+        localStorage.setItem('inscritosPorEvento', JSON.stringify(inscritosPorEvento));
+        console.log('✓ Cache inscritosPorEvento atualizado');
+      }
+      
+      // 2. Atualizar cached_presenca_lists (cache do presencaService)
       const cachePresenca = JSON.parse(localStorage.getItem('cached_presenca_lists') || '{}');
       
       if (cachePresenca[cadastroCompleto.inscricao.evento_id]) {
-        cachePresenca[cadastroCompleto.inscricao.evento_id].data.inscritos.push(novoInscrito);
-        cachePresenca[cadastroCompleto.inscricao.evento_id].data.total_inscritos++;
-        cachePresenca[cadastroCompleto.inscricao.evento_id].data.total_presencas++;
+        // Verificar se já existe
+        const existeNoCache = cachePresenca[cadastroCompleto.inscricao.evento_id].data.inscritos.find(
+          (i: any) => i.email === novoInscrito.email
+        );
+        
+        if (!existeNoCache) {
+          cachePresenca[cadastroCompleto.inscricao.evento_id].data.inscritos.push(novoInscrito);
+          cachePresenca[cadastroCompleto.inscricao.evento_id].data.total_inscritos++;
+          cachePresenca[cadastroCompleto.inscricao.evento_id].data.total_presencas++;
+          cachePresenca[cadastroCompleto.inscricao.evento_id].timestamp = Date.now();
+          console.log('✓ Cache cached_presenca_lists atualizado (evento existente)');
+        }
       } else {
         // Criar entrada no cache se não existir
         const eventoData = eventos.find(e => e.id === cadastroCompleto.inscricao.evento_id);
         cachePresenca[cadastroCompleto.inscricao.evento_id] = {
           success: true,
           data: {
-            evento: eventoData,
+            evento: eventoData || {
+              id: cadastroCompleto.inscricao.evento_id,
+              nome: `Evento ${cadastroCompleto.inscricao.evento_id}`,
+              data_inicio: new Date().toISOString(),
+              data_fim: new Date().toISOString(),
+              local: 'Local não definido'
+            },
             inscritos: [novoInscrito],
             total_inscritos: 1,
             total_presencas: 1
           },
           timestamp: Date.now()
         };
+        console.log('✓ Cache cached_presenca_lists criado para novo evento');
       }
       
       localStorage.setItem('cached_presenca_lists', JSON.stringify(cachePresenca));
       
-      console.log('Novo inscrito adicionado ao cache local:', novoInscrito);
+      // 3. Atualizar cache_completo_offline (se existir)
+      const cacheCompleto = localStorage.getItem('cache_completo_offline');
+      if (cacheCompleto) {
+        try {
+          const dados = JSON.parse(cacheCompleto);
+          if (dados.inscricoesPorEvento) {
+            if (!dados.inscricoesPorEvento[cadastroCompleto.inscricao.evento_id]) {
+              dados.inscricoesPorEvento[cadastroCompleto.inscricao.evento_id] = [];
+            }
+            
+            // Verificar se já existe
+            const existeCompleto = dados.inscricoesPorEvento[cadastroCompleto.inscricao.evento_id].find(
+              (i: any) => i.email === novoInscrito.email
+            );
+            
+            if (!existeCompleto) {
+              dados.inscricoesPorEvento[cadastroCompleto.inscricao.evento_id].push(novoInscrito);
+              dados.timestamp = Date.now();
+              localStorage.setItem('cache_completo_offline', JSON.stringify(dados));
+              console.log('✓ Cache cache_completo_offline atualizado');
+            }
+          }
+        } catch (e) {
+          console.warn('Erro ao atualizar cache_completo_offline:', e);
+        }
+      }
+      
+      console.log('=== NOVO INSCRITO ADICIONADO A TODOS OS CACHES ===', {
+        nome: novoInscrito.nome,
+        email: novoInscrito.email,
+        evento_id: novoInscrito.evento_id,
+        inscricao_id: novoInscrito.inscricao_id,
+        ja_tem_presenca: novoInscrito.ja_tem_presenca
+      });
       
     } catch (error) {
-      console.error('Erro ao adicionar ao cache local:', error);
+      console.error('ERRO CRÍTICO ao adicionar ao cache local:', error);
     }
   };
 

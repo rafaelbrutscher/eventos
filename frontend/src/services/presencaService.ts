@@ -78,6 +78,7 @@ interface CheckinOffline extends CheckinPayload {
   id: string; // ID único local
   timestamp: number;
   sincronizado: boolean;
+  sincronizado_em?: string; // Data/hora da sincronização
 }
 
 // Resposta do check-in
@@ -182,6 +183,125 @@ const isOnline = (): boolean => {
   }
   
   return true;
+};
+
+// Função para verificar integridade dos dados de cache
+const verificarIntegridadeCache = (eventoId: number): {
+  valido: boolean;
+  problemas: string[];
+  fontes: {
+    cacheCompleto: any;
+    cachedLists: any;
+    inscritosPorEvento: any;
+  };
+} => {
+  const problemas: string[] = [];
+  const fontes = {
+    cacheCompleto: null as any,
+    cachedLists: null as any,
+    inscritosPorEvento: null as any
+  };
+
+  try {
+    // 1. Verificar cache completo
+    const cacheCompleto = getCacheCompleto();
+    if (cacheCompleto && cacheCompleto.inscricoesPorEvento[eventoId]) {
+      fontes.cacheCompleto = cacheCompleto.inscricoesPorEvento[eventoId];
+      console.log(`CACHE_CHECK: Cache completo tem ${fontes.cacheCompleto.length} inscritos para evento ${eventoId}`);
+    } else {
+      problemas.push('Cache completo não tem dados para este evento');
+    }
+
+    // 2. Verificar cached_presenca_lists
+    const cachedLists = getCacheListasPresenca();
+    if (cachedLists[eventoId]) {
+      fontes.cachedLists = cachedLists[eventoId].data.inscritos;
+      console.log(`CACHE_CHECK: Cached lists tem ${fontes.cachedLists.length} inscritos para evento ${eventoId}`);
+    } else {
+      problemas.push('Cached lists não tem dados para este evento');
+    }
+
+    // 3. Verificar inscritosPorEvento
+    const inscritosPorEvento = localStorage.getItem('inscritosPorEvento');
+    if (inscritosPorEvento) {
+      const dados = JSON.parse(inscritosPorEvento);
+      if (dados[eventoId]) {
+        fontes.inscritosPorEvento = dados[eventoId];
+        console.log(`CACHE_CHECK: InscritosPorEvento tem ${fontes.inscritosPorEvento.length} inscritos para evento ${eventoId}`);
+      } else {
+        problemas.push('InscritosPorEvento não tem dados para este evento');
+      }
+    } else {
+      problemas.push('InscritosPorEvento não existe no localStorage');
+    }
+
+    // 4. Comparar quantidades
+    const quantidades = [
+      fontes.cacheCompleto?.length || 0,
+      fontes.cachedLists?.length || 0,
+      fontes.inscritosPorEvento?.length || 0
+    ].filter(q => q > 0);
+
+    if (quantidades.length > 1) {
+      const min = Math.min(...quantidades);
+      const max = Math.max(...quantidades);
+      if (max - min > 0) {
+        problemas.push(`Discrepância nas quantidades: min=${min}, max=${max}`);
+      }
+    }
+
+    return {
+      valido: problemas.length === 0,
+      problemas,
+      fontes
+    };
+
+  } catch (error) {
+    console.error('Erro ao verificar integridade do cache:', error);
+    return {
+      valido: false,
+      problemas: ['Erro ao verificar integridade: ' + (error as Error).message],
+      fontes
+    };
+  }
+};
+
+// Função para unificar dados de múltiplas fontes de cache
+const unificarDadosCache = (eventoId: number): Inscrito[] => {
+  console.log(`CACHE_UNIFY: Iniciando unificação para evento ${eventoId}`);
+  
+  const integridade = verificarIntegridadeCache(eventoId);
+  console.log('CACHE_UNIFY: Resultado da verificação de integridade:', integridade);
+
+  // Prioridade: Cache completo -> Cached lists -> InscritosPorEvento
+  const fontes = [
+    { nome: 'cacheCompleto', dados: integridade.fontes.cacheCompleto },
+    { nome: 'cachedLists', dados: integridade.fontes.cachedLists },
+    { nome: 'inscritosPorEvento', dados: integridade.fontes.inscritosPorEvento }
+  ];
+
+  for (const fonte of fontes) {
+    if (fonte.dados && Array.isArray(fonte.dados) && fonte.dados.length > 0) {
+      console.log(`CACHE_UNIFY: Usando dados de ${fonte.nome} (${fonte.dados.length} inscritos)`);
+      
+      // Padronizar formato
+      return fonte.dados.map((inscrito: any) => ({
+        inscricao_id: inscrito.inscricao_id || inscrito.id,
+        usuario_id: inscrito.usuario_id,
+        evento_id: inscrito.evento_id || eventoId,
+        nome: inscrito.nome || inscrito.name,
+        email: inscrito.email,
+        cpf: inscrito.cpf || null,
+        status_inscricao: inscrito.status_inscricao || inscrito.status || 'confirmado',
+        ja_tem_presenca: inscrito.ja_tem_presenca || false,
+        data_inscricao: inscrito.data_inscricao || inscrito.created_at,
+        origem: inscrito.origem || 'cache'
+      }));
+    }
+  }
+
+  console.log('CACHE_UNIFY: Nenhuma fonte de cache válida encontrada');
+  return [];
 };
 
 // Marcar erro de conectividade
@@ -306,16 +426,17 @@ export const baixarDadosCompletos = async (): Promise<{
     tamanhoCache: string;
   };
 }> => {
+  console.log('=== INICIANDO DOWNLOAD DE DADOS COMPLETOS ===');
+
   if (!isOnline()) {
     throw new Error('É necessário estar online para baixar dados completos');
   }
 
   try {
-    console.log('Iniciando download de dados completos...');
-
     // 1. Buscar todos os eventos disponíveis
+    console.log('DOWNLOAD: Buscando eventos disponíveis...');
     const eventos = await getEventosDisponiveis();
-    console.log('Eventos encontrados:', eventos.length);
+    console.log(`DOWNLOAD: ${eventos.length} eventos encontrados`);
 
     if (eventos.length === 0) {
       throw new Error('Nenhum evento disponível para download');
@@ -324,45 +445,76 @@ export const baixarDadosCompletos = async (): Promise<{
     // 2. Buscar inscrições de cada evento
     const inscricoesPorEvento: Record<number, Inscrito[]> = {};
     let totalInscricoes = 0;
+    let eventosComErro = 0;
 
     for (const evento of eventos) {
       try {
-        console.log(`Baixando inscrições do evento: ${evento.nome}`);
-        const lista = await getListaPresencaEvento(evento.id);
-        inscricoesPorEvento[evento.id] = lista.data.inscritos;
-        totalInscricoes += lista.data.inscritos.length;
+        console.log(`DOWNLOAD: Baixando inscrições do evento: ${evento.nome} (ID: ${evento.id})`);
+        
+        // Fazer requisição direta para evitar cache
+        const { data } = await privateApi.get<ListaPresencaResponse>(`/eventos/${evento.id}/lista-presenca`);
+        
+        if (data.success && data.data.inscritos) {
+          inscricoesPorEvento[evento.id] = data.data.inscritos;
+          totalInscricoes += data.data.inscritos.length;
+          
+          // Salvar também no cache individual
+          salvarListaCache(evento.id, data);
+          
+          console.log(`DOWNLOAD: ✓ Evento ${evento.nome}: ${data.data.inscritos.length} inscritos`);
+        } else {
+          console.warn(`DOWNLOAD: ⚠ Evento ${evento.nome}: dados inválidos`);
+          inscricoesPorEvento[evento.id] = [];
+          eventosComErro++;
+        }
 
-        // Pequena pausa para não sobrecarregar a API
-        await new Promise(resolve => setTimeout(resolve, 100));
-      } catch (error) {
-        console.warn(`Erro ao baixar evento ${evento.id}:`, error);
+        // Pausa para não sobrecarregar a API
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+      } catch (error: any) {
+        console.warn(`DOWNLOAD: ❌ Erro ao baixar evento ${evento.nome}:`, error.message);
         inscricoesPorEvento[evento.id] = [];
+        eventosComErro++;
       }
     }
 
-    // 3. Salvar cache completo
+    // 3. Salvar cache completo unificado
     const cacheCompleto: CacheCompletoOffline = {
       eventos,
       inscricoesPorEvento,
       timestamp: Date.now(),
-      versao: '1.0'
+      versao: '2.0' // Versão atualizada
     };
 
     salvarCacheCompleto(cacheCompleto);
 
-    // 4. Calcular tamanho do cache
+    // 4. Sincronizar com outros caches para garantir consistência
+    console.log('DOWNLOAD: Sincronizando caches...');
+    
+    // Atualizar inscritosPorEvento
+    localStorage.setItem('inscritosPorEvento', JSON.stringify(inscricoesPorEvento));
+    
+    // Atualizar eventos disponíveis
+    salvarEventosDisponiveis(eventos);
+
+    // 5. Calcular tamanho do cache
     const cacheString = JSON.stringify(cacheCompleto);
     const tamanhoKB = Math.round(cacheString.length / 1024);
 
-    console.log('Download completo finalizado:', {
+    const statusMessage = eventosComErro > 0 
+      ? `Dados baixados com ${eventosComErro} erro(s). Sistema pronto para funcionar offline.`
+      : 'Dados baixados com sucesso! Sistema pronto para funcionar offline.';
+
+    console.log('=== DOWNLOAD COMPLETO FINALIZADO ===', {
       eventos: eventos.length,
       totalInscricoes,
+      eventosComErro,
       tamanhoKB
     });
 
     return {
       success: true,
-      message: 'Dados baixados com sucesso! Sistema pronto para funcionar offline.',
+      message: statusMessage,
       detalhes: {
         eventos: eventos.length,
         totalInscricoes,
@@ -371,102 +523,122 @@ export const baixarDadosCompletos = async (): Promise<{
     };
 
   } catch (error: any) {
-    console.error('Erro no download de dados completos:', error);
+    console.error('DOWNLOAD: Erro crítico no download de dados completos:', error);
     throw new Error(error.message || 'Falha ao baixar dados completos');
   }
 };
 
 /**
- * Carrega lista de presença de um evento (com cache offline)
+ * Carrega lista de presença de um evento (com cache offline melhorado)
  */
 export const getListaPresencaEvento = async (eventoId: number): Promise<ListaPresencaResponse> => {
+  console.log(`=== PRESENCA SERVICE: getListaPresencaEvento (evento ${eventoId}) ===`);
+  console.log('Connectivity check:', {
+    navigatorOnline: navigator.onLine,
+    isOnlineFunc: isOnline()
+  });
+
   try {
     // Tentar buscar online primeiro
     if (isOnline()) {
+      console.log('PRESENCA: Tentando buscar dados online...');
       const { data } = await privateApi.get<ListaPresencaResponse>(`/eventos/${eventoId}/lista-presenca`);
+      
+      console.log('PRESENCA: Dados obtidos online:', {
+        success: data.success,
+        inscritos: data.data?.inscritos?.length || 0,
+        evento: data.data?.evento?.nome
+      });
 
-      // Salvar em cache individual
+      // Salvar em múltiplos caches para garantir consistência
       salvarListaCache(eventoId, data);
+      
+      // Atualizar também o cache do cadastro rápido
+      atualizarCacheInscritosPorEvento(eventoId, data.data.inscritos);
 
       return data;
     }
-  } catch (error) {
-    console.warn('Erro ao buscar lista online, tentando cache:', error);
+  } catch (error: any) {
+    console.warn('PRESENCA: Erro ao buscar lista online, usando cache offline:', error.message);
+    // Marcar erro de conexão
+    markConnectionError();
   }
 
-  // Tentar cache completo primeiro
-  const cacheCompleto = getCacheCompleto();
-  if (cacheCompleto && isCacheValido(cacheCompleto)) {
-    const evento = cacheCompleto.eventos.find(e => e.id === eventoId);
-    const inscritos = cacheCompleto.inscricoesPorEvento[eventoId];
+  console.log('PRESENCA: Modo offline - verificando caches disponíveis');
 
-    if (evento && inscritos) {
-      return {
-        success: true,
-        data: {
-          evento,
-          inscritos,
-          total_inscritos: inscritos.length,
-          total_presencas: inscritos.filter(i => i.ja_tem_presenca).length
-        }
+  // Verificar integridade dos caches antes de usar
+  const integridade = verificarIntegridadeCache(eventoId);
+  console.log('PRESENCA: Integridade do cache:', integridade);
+
+  // Usar dados unificados de cache
+  const inscritosUnificados = unificarDadosCache(eventoId);
+  
+  if (inscritosUnificados.length > 0) {
+    // Buscar dados do evento
+    let eventoInfo = null;
+
+    // Tentar cache completo primeiro
+    const cacheCompleto = getCacheCompleto();
+    if (cacheCompleto) {
+      eventoInfo = cacheCompleto.eventos.find(e => e.id === eventoId);
+    }
+
+    // Fallback: cache de eventos
+    if (!eventoInfo) {
+      const eventosCache = getEventosDisponiveisCache();
+      eventoInfo = eventosCache.find(e => e.id === eventoId);
+    }
+
+    // Fallback: dados básicos
+    if (!eventoInfo) {
+      eventoInfo = {
+        id: eventoId,
+        nome: `Evento ${eventoId}`,
+        data_inicio: new Date().toISOString(),
+        data_fim: new Date().toISOString(),
+        local: 'Local não definido'
       };
     }
-  }
 
-  // Fallback: tentar cache do cadastro rápido
-  try {
-    const inscritosPorEvento = localStorage.getItem('inscritosPorEvento');
-    if (inscritosPorEvento) {
-      const dados = JSON.parse(inscritosPorEvento);
-      const inscritos = dados[eventoId];
-
-      if (inscritos && Array.isArray(inscritos)) {
-        // Buscar dados do evento do cache de eventos
-        const eventosCache = localStorage.getItem('eventosCache');
-        let eventoInfo = null;
-
-        if (eventosCache) {
-          const eventos = JSON.parse(eventosCache);
-          eventoInfo = eventos.find((e: any) => e.id === eventoId);
-        }
-
-        if (!eventoInfo) {
-          eventoInfo = {
-            id: eventoId,
-            nome: `Evento ${eventoId}`,
-            data_inicio: new Date().toISOString(),
-            data_fim: new Date().toISOString(),
-            local: 'Local não definido'
-          };
-        }
-
-        return {
-          success: true,
-          data: {
-            evento: eventoInfo,
-            inscritos,
-            total_inscritos: inscritos.length,
-            total_presencas: inscritos.filter((i: any) => i.ja_tem_presenca).length
-          }
-        };
+    const resultado = {
+      success: true,
+      data: {
+        evento: eventoInfo,
+        inscritos: inscritosUnificados,
+        total_inscritos: inscritosUnificados.length,
+        total_presencas: inscritosUnificados.filter(i => i.ja_tem_presenca).length
       }
-    }
-  } catch (error) {
-    console.warn('Erro ao usar cache do cadastro rápido:', error);
-  }
-
-  // Fallback para cache individual
-  const cache = getCacheListasPresenca();
-  const listaCache = cache[eventoId];
-
-  if (listaCache) {
-    return {
-      success: listaCache.success,
-      data: listaCache.data
     };
+
+    console.log('PRESENCA: Dados retornados do cache unificado:', {
+      evento: eventoInfo.nome,
+      inscritos: inscritosUnificados.length,
+      presencas: resultado.data.total_presencas,
+      problemas: integridade.problemas
+    });
+
+    return resultado;
   }
 
-  throw new Error('Nenhuma lista de presença disponível offline para este evento');
+  // Se chegou aqui, não há dados disponíveis
+  console.error('PRESENCA: Nenhum cache disponível para evento', eventoId);
+  throw new Error(`Nenhuma lista de presença disponível offline para o evento ${eventoId}. ${
+    integridade.problemas.length > 0 
+      ? 'Problemas encontrados: ' + integridade.problemas.join(', ')
+      : 'Tente baixar os dados completos quando estiver online.'
+  }`);
+};
+
+// Função auxiliar para atualizar cache de inscritos por evento
+const atualizarCacheInscritosPorEvento = (eventoId: number, inscritos: Inscrito[]): void => {
+  try {
+    const cache = JSON.parse(localStorage.getItem('inscritosPorEvento') || '{}');
+    cache[eventoId] = inscritos;
+    localStorage.setItem('inscritosPorEvento', JSON.stringify(cache));
+    console.log(`Cache inscritosPorEvento atualizado para evento ${eventoId} com ${inscritos.length} inscritos`);
+  } catch (error) {
+    console.error('Erro ao atualizar cache inscritosPorEvento:', error);
+  }
 };
 
 /**
@@ -547,12 +719,16 @@ export const sincronizarCadastrosOffline = async (): Promise<{
     resultados: any[];
   };
 }> => {
+  console.log('=== INICIANDO SINCRONIZAÇÃO DE CADASTROS OFFLINE ===');
+  
   if (!isOnline()) {
     throw new Error('Sincronização requer conexão com a internet');
   }
 
   const cadastrosOffline = JSON.parse(localStorage.getItem('cadastrosOffline') || '[]');
   const pendentes = cadastrosOffline.filter((c: any) => !c.sincronizado);
+
+  console.log(`SYNC_CADASTROS: ${pendentes.length} cadastros pendentes de sincronização`);
 
   if (pendentes.length === 0) {
     return {
@@ -573,16 +749,22 @@ export const sincronizarCadastrosOffline = async (): Promise<{
       cadastros: pendentes
     });
 
-    console.log('Resposta da sincronização:', data);
+    console.log('SYNC_CADASTROS: Resposta da sincronização:', data);
 
     if (data.success) {
       // Marcar todos como sincronizados
       pendentes.forEach((cadastro: any) => {
         cadastro.sincronizado = true;
+        cadastro.sincronizado_em = new Date().toISOString();
       });
       
       // Salvar cadastros atualizados
       localStorage.setItem('cadastrosOffline', JSON.stringify(cadastrosOffline));
+      console.log('SYNC_CADASTROS: Cadastros marcados como sincronizados');
+
+      // Limpar caches para forçar reload dos dados atualizados do servidor
+      console.log('SYNC_CADASTROS: Limpando caches para forçar reload...');
+      limparCachesParaReload();
     }
 
     return {
@@ -597,13 +779,9 @@ export const sincronizarCadastrosOffline = async (): Promise<{
     };
 
   } catch (error: any) {
-    console.error('Erro na sincronização:', error);
+    console.error('SYNC_CADASTROS: Erro na sincronização:', error);
     throw new Error(error.response?.data?.message || 'Falha na sincronização de cadastros');
   }
-  
-  // Limpar cache para forçar reload
-  localStorage.removeItem(STORAGE_KEYS.CACHED_LISTS);
-  localStorage.removeItem(STORAGE_KEYS.CACHE_COMPLETO);
 };
 
 /**
@@ -619,11 +797,15 @@ export const sincronizarCheckinsOffline = async (): Promise<{
     resultados: any[];
   };
 }> => {
+  console.log('=== INICIANDO SINCRONIZAÇÃO DE CHECK-INS OFFLINE ===');
+
   if (!isOnline()) {
     throw new Error('Sincronização requer conexão com a internet');
   }
 
   const checkinsOffline = getCheckinsOffline().filter(c => !c.sincronizado);
+
+  console.log(`SYNC_CHECKINS: ${checkinsOffline.length} check-ins pendentes de sincronização`);
 
   if (checkinsOffline.length === 0) {
     return {
@@ -646,7 +828,11 @@ export const sincronizarCheckinsOffline = async (): Promise<{
       data_hora: c.data_hora!
     }));
 
+    console.log('SYNC_CHECKINS: Enviando dados para servidor:', checkins);
+
     const { data } = await privateApi.post('/check-in/offline-sync', { checkins });
+
+    console.log('SYNC_CHECKINS: Resposta da sincronização:', data);
 
     // Marcar como sincronizados
     const todosCheckins = getCheckinsOffline();
@@ -654,9 +840,11 @@ export const sincronizarCheckinsOffline = async (): Promise<{
       const index = todosCheckins.findIndex(c => c.id === offline.id);
       if (index !== -1) {
         todosCheckins[index].sincronizado = true;
+        todosCheckins[index].sincronizado_em = new Date().toISOString();
       }
     });
     localStorage.setItem(STORAGE_KEYS.OFFLINE_CHECKINS, JSON.stringify(todosCheckins));
+    console.log('SYNC_CHECKINS: Check-ins marcados como sincronizados');
 
     // Limpar sincronizados após um tempo
     setTimeout(limparCheckinsSincronizados, 1000);
@@ -664,7 +852,9 @@ export const sincronizarCheckinsOffline = async (): Promise<{
     // Atualizar timestamp da última sincronização
     localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
 
-    console.log('Sincronização concluída:', data);
+    // Limpar caches para garantir que próxima busca mostre dados atualizados do servidor
+    limparCachesParaReload();
+
     return {
       success: true,
       message: data.message,
@@ -677,7 +867,7 @@ export const sincronizarCheckinsOffline = async (): Promise<{
     };
 
   } catch (error: any) {
-    console.error('Erro na sincronização:', error);
+    console.error('SYNC_CHECKINS: Erro na sincronização:', error);
     throw new Error(error.response?.data?.message || 'Falha na sincronização offline');
   }
 };
@@ -742,15 +932,93 @@ export const getCadastrosOfflinePendentes = (): number => {
 };
 
 /**
+ * Limpa caches específicos para forçar reload após sincronização
+ */
+export const limparCachesParaReload = (): void => {
+  console.log('=== LIMPANDO CACHES PARA RELOAD ===');
+  
+  // Caches que devem ser limpos após sincronização
+  const cachesParaLimpar = [
+    STORAGE_KEYS.CACHED_LISTS,
+    STORAGE_KEYS.CACHE_COMPLETO,
+    'inscritosPorEvento'
+  ];
+
+  cachesParaLimpar.forEach(cache => {
+    localStorage.removeItem(cache);
+    console.log(`✓ Cache removido: ${cache}`);
+  });
+
+  // Limpar apenas erro de conectividade para permitir nova tentativa online
+  localStorage.removeItem('last_connection_error');
+  
+  console.log('=== CACHES LIMPOS - PRÓXIMA BUSCA SERÁ ONLINE ===');
+};
+
+/**
  * Força limpeza de todos os dados offline (use com cuidado)
  */
 export const limparDadosOffline = (): void => {
-  localStorage.removeItem(STORAGE_KEYS.OFFLINE_CHECKINS);
-  localStorage.removeItem(STORAGE_KEYS.CACHED_LISTS);
-  localStorage.removeItem(STORAGE_KEYS.LAST_SYNC);
-  localStorage.removeItem(STORAGE_KEYS.CACHE_COMPLETO);
-  localStorage.removeItem(STORAGE_KEYS.EVENTOS_DISPONIVEIS);
-  console.log('Todos os dados offline foram limpos');
+  console.log('=== INICIANDO LIMPEZA COMPLETA DOS DADOS OFFLINE ===');
+  
+  try {
+    const todosOsCaches = [
+      STORAGE_KEYS.OFFLINE_CHECKINS,
+      STORAGE_KEYS.CACHED_LISTS,
+      STORAGE_KEYS.LAST_SYNC,
+      STORAGE_KEYS.CACHE_COMPLETO,
+      STORAGE_KEYS.EVENTOS_DISPONIVEIS,
+      'inscritosPorEvento',
+      'eventosCache',
+      'cadastrosOffline',
+      'last_connection_error'
+    ];
+
+    // Verificar quais caches existem antes da limpeza
+    const cachesExistentes = todosOsCaches.filter(cache => {
+      const existe = localStorage.getItem(cache) !== null;
+      if (existe) {
+        const tamanho = localStorage.getItem(cache)?.length || 0;
+        console.log(`LIMPEZA: Encontrado cache '${cache}' (${tamanho} chars)`);
+      }
+      return existe;
+    });
+
+    console.log(`LIMPEZA: ${cachesExistentes.length} caches encontrados para remoção`);
+
+    // Remover todos os caches
+    let removidos = 0;
+    let erros = 0;
+
+    todosOsCaches.forEach(cache => {
+      try {
+        const existia = localStorage.getItem(cache) !== null;
+        localStorage.removeItem(cache);
+        
+        if (existia) {
+          removidos++;
+          console.log(`✓ Cache removido: ${cache}`);
+        }
+      } catch (error) {
+        erros++;
+        console.error(`❌ Erro ao remover cache '${cache}':`, error);
+      }
+    });
+
+    // Verificar se limpeza foi bem-sucedida
+    const cachesRestantes = todosOsCaches.filter(cache => localStorage.getItem(cache) !== null);
+    
+    if (cachesRestantes.length > 0) {
+      console.warn(`LIMPEZA: ${cachesRestantes.length} caches não foram removidos:`, cachesRestantes);
+      throw new Error(`Falha na limpeza: ${cachesRestantes.length} caches restantes`);
+    }
+
+    console.log(`=== LIMPEZA CONCLUÍDA: ${removidos} caches removidos, ${erros} erros ===`);
+    
+  } catch (error) {
+    console.error('ERRO CRÍTICO na limpeza dos dados offline:', error);
+    throw error; // Re-lançar para o componente tratar
+  }
 };
 
 /**
@@ -777,19 +1045,255 @@ export const getStatusOffline = () => {
       eventos: cacheCompleto?.eventos.length || 0,
       totalInscricoes: cacheCompleto ? Object.values(cacheCompleto.inscricoesPorEvento).reduce((acc, arr) => acc + arr.length, 0) : 0,
       timestamp: cacheCompleto?.timestamp,
-      tamanhoKB: cacheCompleto ? Math.round(JSON.stringify(cacheCompleto).length / 1024) : 0
+      tamanhoKB: cacheCompleto ? Math.round(JSON.stringify(cacheCompleto).length / 1024) : 0,
+      versao: cacheCompleto?.versao || '1.0'
     },
-    eventosDisponiveis: eventosCache.length
+    eventosDisponiveis: eventosCache.length,
+    qualidadeCache: avaliarQualidadeCache()
   };
+};
+
+/**
+ * Avalia a qualidade geral do sistema de cache offline
+ */
+export const avaliarQualidadeCache = (): {
+  score: number; // 0-100
+  nivel: 'excelente' | 'bom' | 'regular' | 'ruim' | 'crítico';
+  detalhes: string[];
+  recomendacoes: string[];
+} => {
+  const detalhes: string[] = [];
+  const recomendacoes: string[] = [];
+  let score = 0;
+
+  // Verificar cache completo (40 pontos)
+  const cacheCompleto = getCacheCompleto();
+  if (cacheCompleto && isCacheValido(cacheCompleto)) {
+    score += 40;
+    detalhes.push('✓ Cache completo válido e atualizado');
+    
+    const totalInscricoes = Object.values(cacheCompleto.inscricoesPorEvento).reduce((acc, arr) => acc + arr.length, 0);
+    if (totalInscricoes > 0) {
+      score += 10;
+      detalhes.push(`✓ ${totalInscricoes} inscrições em cache`);
+    }
+  } else {
+    detalhes.push('⚠ Cache completo inválido ou desatualizado');
+    recomendacoes.push('Execute "Baixar Dados" para atualizar o cache completo');
+  }
+
+  // Verificar eventos disponíveis (20 pontos)
+  const eventosCache = getEventosDisponiveisCache();
+  if (eventosCache.length > 0) {
+    score += 20;
+    detalhes.push(`✓ ${eventosCache.length} eventos em cache`);
+  } else {
+    detalhes.push('⚠ Nenhum evento em cache');
+    recomendacoes.push('Carregue a lista de eventos online primeiro');
+  }
+
+  // Verificar conectividade (10 pontos)
+  if (isOnline()) {
+    score += 10;
+    detalhes.push('✓ Sistema online');
+  } else {
+    detalhes.push('⚠ Sistema offline');
+  }
+
+  // Verificar consistência de caches (20 pontos)
+  if (eventosCache.length > 0) {
+    let cachesConsistentes = 0;
+    const totalEventos = eventosCache.length;
+    
+    eventosCache.forEach(evento => {
+      const integridade = verificarIntegridadeCache(evento.id);
+      if (integridade.valido) {
+        cachesConsistentes++;
+      }
+    });
+    
+    const percentualConsistencia = (cachesConsistentes / totalEventos) * 100;
+    const pontosConsistencia = Math.round((percentualConsistencia / 100) * 20);
+    score += pontosConsistencia;
+    
+    if (percentualConsistencia >= 90) {
+      detalhes.push('✓ Caches altamente consistentes');
+    } else if (percentualConsistencia >= 70) {
+      detalhes.push('~ Caches parcialmente consistentes');
+      recomendacoes.push('Considere recarregar alguns eventos');
+    } else {
+      detalhes.push('⚠ Problemas de consistência nos caches');
+      recomendacoes.push('Execute sincronização completa');
+    }
+  }
+
+  // Determinar nível
+  let nivel: 'excelente' | 'bom' | 'regular' | 'ruim' | 'crítico';
+  if (score >= 90) nivel = 'excelente';
+  else if (score >= 70) nivel = 'bom';
+  else if (score >= 50) nivel = 'regular';
+  else if (score >= 30) nivel = 'ruim';
+  else nivel = 'crítico';
+
+  // Recomendações gerais
+  if (score < 70 && isOnline()) {
+    recomendacoes.push('Execute "Baixar Dados" para melhorar a qualidade do cache');
+  }
+
+  const pendentes = getCadastrosOfflinePendentes() + getCheckinsOfflinePendentes();
+  if (pendentes > 0 && isOnline()) {
+    recomendacoes.push(`Sincronize ${pendentes} item(s) offline pendente(s)`);
+  }
+
+  return {
+    score,
+    nivel,
+    detalhes,
+    recomendacoes
+  };
+};
+
+/**
+ * Executa testes de integridade do sistema offline
+ */
+export const testarIntegridadeOffline = async (): Promise<{
+  success: boolean;
+  resultados: {
+    cacheCompleto: boolean;
+    cacheIndividual: boolean;
+    inscritosPorEvento: boolean;
+    consistenciaEventos: boolean;
+    funcionalidadeOffline: boolean;
+  };
+  detalhes: string[];
+  erros: string[];
+}> => {
+  console.log('=== INICIANDO TESTE DE INTEGRIDADE OFFLINE ===');
+  
+  const resultados = {
+    cacheCompleto: false,
+    cacheIndividual: false,
+    inscritosPorEvento: false,
+    consistenciaEventos: false,
+    funcionalidadeOffline: false
+  };
+  
+  const detalhes: string[] = [];
+  const erros: string[] = [];
+
+  try {
+    // Teste 1: Cache completo
+    const cacheCompleto = getCacheCompleto();
+    if (cacheCompleto && isCacheValido(cacheCompleto)) {
+      resultados.cacheCompleto = true;
+      detalhes.push(`✓ Cache completo válido com ${cacheCompleto.eventos.length} eventos`);
+    } else {
+      erros.push('Cache completo inválido ou expirado');
+    }
+
+    // Teste 2: Cache individual
+    const cacheListas = getCacheListasPresenca();
+    const eventosEmCache = Object.keys(cacheListas).length;
+    if (eventosEmCache > 0) {
+      resultados.cacheIndividual = true;
+      detalhes.push(`✓ Cache individual com ${eventosEmCache} eventos`);
+    } else {
+      erros.push('Nenhum cache individual encontrado');
+    }
+
+    // Teste 3: inscritosPorEvento
+    const inscritosPorEvento = localStorage.getItem('inscritosPorEvento');
+    if (inscritosPorEvento) {
+      const dados = JSON.parse(inscritosPorEvento);
+      const eventosComInscricoes = Object.keys(dados).length;
+      if (eventosComInscricoes > 0) {
+        resultados.inscritosPorEvento = true;
+        detalhes.push(`✓ InscritosPorEvento com ${eventosComInscricoes} eventos`);
+      }
+    } else {
+      erros.push('Cache inscritosPorEvento não encontrado');
+    }
+
+    // Teste 4: Consistência entre eventos
+    const eventosDisponiveis = getEventosDisponiveisCache();
+    if (eventosDisponiveis.length > 0) {
+      let eventosConsistentes = 0;
+      
+      for (const evento of eventosDisponiveis.slice(0, 3)) { // Testar apenas primeiros 3
+        try {
+          const integridade = verificarIntegridadeCache(evento.id);
+          if (integridade.valido) {
+            eventosConsistentes++;
+          }
+        } catch (error) {
+          // Ignorar erros individuais
+        }
+      }
+      
+      if (eventosConsistentes > 0) {
+        resultados.consistenciaEventos = true;
+        detalhes.push(`✓ ${eventosConsistentes} eventos com cache consistente`);
+      } else {
+        erros.push('Nenhum evento com cache consistente');
+      }
+    } else {
+      erros.push('Nenhum evento disponível para teste');
+    }
+
+    // Teste 5: Funcionalidade offline básica
+    try {
+      const pendentesTotal = getCadastrosOfflinePendentes() + getCheckinsOfflinePendentes();
+      
+      resultados.funcionalidadeOffline = true;
+      detalhes.push(`✓ Funcionalidades offline operacionais (${pendentesTotal} itens pendentes)`);
+    } catch (error) {
+      erros.push('Erro nas funcionalidades offline: ' + (error as Error).message);
+    }
+
+    const sucessoGeral = Object.values(resultados).filter(r => r).length >= 3;
+
+    console.log('=== TESTE DE INTEGRIDADE CONCLUÍDO ===', {
+      sucessos: Object.values(resultados).filter(r => r).length,
+      total: Object.keys(resultados).length,
+      detalhes: detalhes.length,
+      erros: erros.length
+    });
+
+    return {
+      success: sucessoGeral,
+      resultados,
+      detalhes,
+      erros
+    };
+
+  } catch (error: any) {
+    console.error('ERRO CRÍTICO no teste de integridade:', error);
+    erros.push('Erro crítico no teste: ' + error.message);
+    
+    return {
+      success: false,
+      resultados,
+      detalhes,
+      erros
+    };
+  }
 };
 
 // Listener para status de conexão
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
-    console.log('Conexão restaurada - dados offline podem ser sincronizados');
+    console.log('=== CONEXÃO RESTAURADA ===');
+    console.log('Sistema voltou online - dados offline podem ser sincronizados');
+    
+    // Limpar erro de conectividade
+    localStorage.removeItem('last_connection_error');
   });
 
   window.addEventListener('offline', () => {
-    console.log('Conexão perdida - modo offline ativado');
+    console.log('=== CONEXÃO PERDIDA ===');
+    console.log('Sistema entrou em modo offline - operações serão salvas localmente');
+    
+    // Marcar início do período offline
+    localStorage.setItem('offline_since', Date.now().toString());
   });
 }
