@@ -75,6 +75,43 @@ class CertificadoViewSet(viewsets.ModelViewSet):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+def validar_certificado_direto(request, codigo):
+    """Função direta para validar certificado - rota: /api/certificados/validar/{codigo}/"""
+    logger.info(f'🔍 Validando certificado: {codigo}')
+    
+    if not codigo:
+        return Response(
+            {'erro': 'Código de validação é obrigatório'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        certificado = get_object_or_404(Certificado, codigo_validacao=codigo)
+        
+        logger.info(f'✅ Certificado encontrado: {certificado.participante_nome} - {certificado.evento_nome}')
+        
+        return Response({
+            'valido': True,
+            'codigo': certificado.codigo_validacao,
+            'participante_nome': certificado.participante_nome,
+            'participante_email': certificado.participante_email,
+            'evento_nome': certificado.evento_nome,
+            'data_emissao': certificado.created_at,
+            'mensagem': 'Certificado válido'
+        })
+        
+    except Http404:
+        logger.warning(f'❌ Certificado não encontrado: {codigo}')
+        
+        return Response({
+            'valido': False,
+            'codigo': codigo,
+            'mensagem': 'Certificado não encontrado ou inválido'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def listar_eventos_participados(request):
     """Lista eventos que o usuário participou e pode gerar certificado"""
     try:
@@ -155,44 +192,44 @@ def listar_eventos_participados(request):
             except Exception as e:
                 logger.error(f'Erro inesperado ao processar evento {evento_id}: {str(e)}')
                 continue
-                
-                # Verificar se evento já terminou (pode gerar certificado)
-                from datetime import datetime
-                from django.utils import timezone
-                
-                try:
-                    data_fim_str = evento.get('data_fim', '')
-                    if data_fim_str:
-                        if 'T' in data_fim_str:
-                            data_fim = datetime.fromisoformat(data_fim_str.replace('Z', '+00:00'))
-                        else:
-                            data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d')
-                            data_fim = timezone.make_aware(data_fim)
-                        
-                        pode_gerar_certificado = data_fim < timezone.now()
+            
+            # Verificar se evento já terminou (pode gerar certificado)
+            from datetime import datetime
+            from django.utils import timezone
+            
+            try:
+                data_fim_str = evento.get('data_fim', '')
+                if data_fim_str:
+                    if 'T' in data_fim_str:
+                        data_fim = datetime.fromisoformat(data_fim_str.replace('Z', '+00:00'))
                     else:
-                        pode_gerar_certificado = True  # Se não tem data fim, permite gerar
-                except:
-                    pode_gerar_certificado = True  # Em caso de erro, permite gerar
-                
-                # Verificar se certificado já existe
-                certificado_existente = Certificado.objects.filter(
-                    evento_id=evento_id,
-                    participante_id=user_id
-                ).first()
-                
-                eventos_participados.append({
-                    'evento_id': evento_id,
-                    'nome': evento['nome'],
-                    'descricao': evento.get('descricao', ''),
-                    'data_inicio': evento.get('data_inicio'),
-                    'data_fim': evento.get('data_fim'),
-                    'pode_gerar_certificado': pode_gerar_certificado,
-                    'certificado_gerado': certificado_existente is not None,
-                    'certificado_codigo': certificado_existente.codigo_validacao if certificado_existente else None,
-                    'certificado_id': certificado_existente.id if certificado_existente else None,
-                    'data_presenca': presenca.get('data_hora')
-                })
+                        data_fim = datetime.strptime(data_fim_str, '%Y-%m-%d')
+                        data_fim = timezone.make_aware(data_fim)
+                    
+                    pode_gerar_certificado = data_fim < timezone.now()
+                else:
+                    pode_gerar_certificado = True  # Se não tem data fim, permite gerar
+            except:
+                pode_gerar_certificado = True  # Em caso de erro, permite gerar
+            
+            # Verificar se certificado já existe
+            certificado_existente = Certificado.objects.filter(
+                evento_id=evento_id,
+                participante_id=user_id
+            ).first()
+            
+            eventos_participados.append({
+                'evento_id': evento_id,
+                'nome': evento['nome'],
+                'descricao': evento.get('descricao', ''),
+                'data_inicio': evento.get('data_inicio'),
+                'data_fim': evento.get('data_fim'),
+                'pode_gerar_certificado': pode_gerar_certificado,
+                'certificado_gerado': certificado_existente is not None,
+                'certificado_codigo': certificado_existente.codigo_validacao if certificado_existente else None,
+                'certificado_id': certificado_existente.id if certificado_existente else None,
+                'data_presenca': presenca.get('data_hora')
+            })
         
         return Response({
             'success': True,
@@ -207,6 +244,58 @@ def listar_eventos_participados(request):
             {'success': True, 'data': [], 'total': 0}, 
             status=status.HTTP_200_OK
         )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def listar_meus_certificados(request):
+    """Lista diretamente os certificados do usuário - API simplificada"""
+    try:
+        user_id = request.GET.get('user_id')
+        if not user_id:
+            return Response(
+                {'erro': 'user_id é obrigatório'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        logger.info(f'🔍 Listando certificados do usuário: {user_id}')
+        
+        # Buscar certificados diretamente
+        certificados = Certificado.objects.filter(
+            participante_id=user_id,
+            gerado=True
+        ).order_by('-created_at')
+        
+        certificados_list = []
+        for cert in certificados:
+            certificados_list.append({
+                'id': cert.id,
+                'codigo_validacao': cert.codigo_validacao,
+                'participante_nome': cert.participante_nome,
+                'participante_email': cert.participante_email,
+                'evento_nome': cert.evento_nome,
+                'evento_id': cert.evento_id,
+                'gerado': cert.gerado,
+                'disponivel_usuario': cert.disponivel_usuario,
+                'data_emissao': cert.created_at.isoformat() if cert.created_at else None,
+                'can_download': cert.gerado and cert.disponivel_usuario
+            })
+        
+        logger.info(f'✅ Encontrados {len(certificados_list)} certificados para o usuário {user_id}')
+        
+        return Response({
+            'success': True,
+            'data': certificados_list,
+            'total': len(certificados_list)
+        })
+        
+    except Exception as e:
+        logger.error(f'❌ Erro ao listar certificados do usuário: {str(e)}', exc_info=True)
+        return Response({
+            'success': False,
+            'erro': 'Erro interno ao buscar certificados',
+            'detalhes': str(e)
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
