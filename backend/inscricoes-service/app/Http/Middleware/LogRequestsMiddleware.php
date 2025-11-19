@@ -16,37 +16,29 @@ class LogRequestsMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Log da requisição recebida
-        Log::info('Requisição recebida - Inscricoes Service', [
-            'service' => 'inscricoes-service',
-            'method' => $request->method(),
-            'url' => $request->fullUrl(),
-            'route' => $request->route()?->getName() ?? 'undefined',
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'headers' => $this->getLogSafeHeaders($request),
-            'body' => $this->getLogSafeBody($request),
-            'user_id' => $request->attributes->get('user_id', 'guest'),
-            'timestamp' => now()->toDateTimeString()
-        ]);
+        // Log da requisição recebida (formato compacto)
+        Log::info(sprintf(
+            '[INSCRICOES-SERVICE] → %s %s | IP: %s | User: %s | Body: %s',
+            $request->method(),
+            $request->getPathInfo(),
+            $request->ip(),
+            $request->attributes->get('user_id', 'guest'),
+            json_encode($this->getLogSafeBody($request))
+        ));
 
         $startTime = microtime(true);
         $response = $next($request);
         $executionTime = round((microtime(true) - $startTime) * 1000, 2);
 
-        // Log da resposta enviada
-        Log::info('Resposta enviada - Inscricoes Service', [
-            'service' => 'inscricoes-service',
-            'method' => $request->method(),
-            'url' => $request->fullUrl(),
-            'route' => $request->route()?->getName() ?? 'undefined',
-            'ip' => $request->ip(),
-            'status_code' => $response->getStatusCode(),
-            'response_size' => strlen($response->getContent()),
-            'execution_time_ms' => $executionTime,
-            'user_id' => $request->attributes->get('user_id', 'guest'),
-            'timestamp' => now()->toDateTimeString()
-        ]);
+        // Log da resposta enviada (formato compacto)
+        Log::info(sprintf(
+            '[INSCRICOES-SERVICE] ← %s %s | Status: %d | %sms | Size: %s bytes',
+            $request->method(),
+            $request->getPathInfo(),
+            $response->getStatusCode(),
+            $executionTime,
+            number_format(strlen($response->getContent()))
+        ));
 
         return $response;
     }

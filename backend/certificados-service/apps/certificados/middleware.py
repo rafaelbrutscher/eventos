@@ -33,55 +33,34 @@ class LogTodosRequestsMiddleware:
         return response
 
     def log_request(self, request):
-        """Log detalhado da requisição HTTP - VERSÃO SUPER INTENSIVA"""
+        """Log compacto da requisição HTTP"""
         
-        # Preparar dados da requisição
-        request_data = {
-            'timestamp': timezone.now().isoformat(),
-            'method': request.method,
-            'url': request.get_full_path(),
-            'scheme': request.scheme,
-            'host': request.get_host(),
-            'remote_addr': request.META.get('REMOTE_ADDR', 'N/A'),
-            'user_agent': request.META.get('HTTP_USER_AGENT', 'N/A')[:200],
-            'content_type': request.META.get('CONTENT_TYPE', 'N/A'),
-            'content_length': request.META.get('CONTENT_LENGTH', '0'),
-            'query_params': dict(request.GET),
-        }
-        
-        # Log da requisição
-        print(f'\nREQUISICAO: {request_data["method"]} {request_data["url"]}')
-        print(f'IP: {request_data["remote_addr"]} | Host: {request_data["host"]}')
-        if request_data["query_params"]:
-            print(f'Params: {request_data["query_params"]}')
-        
-        # Log do body para POST/PUT/PATCH
+        # Preparar body seguro
+        body_safe = {}
         if request.method in ['POST', 'PUT', 'PATCH']:
             try:
-                body_content = request.body[:500]  # Limitar a 500 caracteres
-                print(f'Body: {body_content}')
-                request_data['body_preview'] = body_content.decode('utf-8', errors='ignore')
-            except Exception as e:
-                print(f'Erro ao ler body: {str(e)}')
-                request_data['body_error'] = str(e)
+                if hasattr(request, 'body') and request.body:
+                    body_content = request.body.decode('utf-8', errors='ignore')[:200]
+                    if body_content:
+                        body_safe = {'body_preview': body_content}
+                    else:
+                        body_safe = {'body': 'empty'}
+            except Exception:
+                body_safe = {'body': 'error'}
         
-        # Log em arquivo
-        logger.info(f'REQUISICAO: {json.dumps(request_data, ensure_ascii=False)}')
+        # Log compacto formato padrão
+        log_message = f"[CERTIFICADOS-SERVICE] → {request.method} {request.get_full_path()} | IP: {request.META.get('REMOTE_ADDR', 'N/A')} | Body: {json.dumps(body_safe)}"
+        
+        print(log_message)
+        logger.info(log_message)
 
     def log_response(self, request, response):
-        """Log da resposta HTTP"""
+        """Log compacto da resposta HTTP"""
         
-        response_data = {
-            'timestamp': timezone.now().isoformat(),
-            'url': request.get_full_path(),
-            'method': request.method,
-            'status_code': response.status_code,
-            'content_type': response.get('Content-Type', 'N/A'),
-            'content_length': len(response.content) if hasattr(response, 'content') else 0
-        }
+        content_length = len(response.content) if hasattr(response, 'content') else 0
         
-        # Log da resposta
-        print(f'RESPOSTA: {response_data["status_code"]} para {response_data["method"]} {response_data["url"]}')
+        # Log compacto formato padrão  
+        log_message = f"[CERTIFICADOS-SERVICE] ← {request.method} {request.get_full_path()} | Status: {response.status_code} | Size: {content_length:,} bytes"
         
-        # Log em arquivo
-        logger.info(f'RESPOSTA HTTP: {json.dumps(response_data, ensure_ascii=False)}')
+        print(log_message)
+        logger.info(log_message)

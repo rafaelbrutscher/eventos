@@ -18,10 +18,11 @@ class LogRequestsMiddleware
     {
         // Log da requisição recebida (formato compacto)
         Log::info(sprintf(
-            '[EVENTOS-SERVICE] → %s %s | IP: %s | Body: %s',
+            '[PRESENCA-SERVICE] → %s %s | IP: %s | User: %s | Body: %s',
             $request->method(),
             $request->getPathInfo(),
             $request->ip(),
+            $request->attributes->get('user_id', 'guest'),
             json_encode($this->getLogSafeBody($request))
         ));
 
@@ -31,7 +32,7 @@ class LogRequestsMiddleware
 
         // Log da resposta enviada (formato compacto)
         Log::info(sprintf(
-            '[EVENTOS-SERVICE] ← %s %s | Status: %d | %sms | Size: %s bytes',
+            '[PRESENCA-SERVICE] ← %s %s | Status: %d | %sms | Size: %s bytes',
             $request->method(),
             $request->getPathInfo(),
             $response->getStatusCode(),
@@ -49,6 +50,7 @@ class LogRequestsMiddleware
     {
         $body = $request->all();
 
+        // Remove campos sensíveis do log
         $sensitiveFields = ['password', 'password_confirmation', 'token', 'secret'];
 
         foreach ($sensitiveFields as $field) {
@@ -67,6 +69,7 @@ class LogRequestsMiddleware
     {
         $headers = $request->headers->all();
 
+        // Oculta tokens de autorização
         if (isset($headers['authorization'])) {
             $headers['authorization'] = ['Bearer ***TOKEN***'];
         }

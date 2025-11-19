@@ -18,9 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.atendente' => \App\Http\Middleware\CheckAtendenteRole::class,
         ]);
 
-        // Configuração de CORS
+        // Configuração de CORS e Logs
         $middleware->api([
             \App\Http\Middleware\CorsMiddleware::class,
+            \App\Http\Middleware\LogRequestsMiddleware::class,
         ]);
 
         $middleware->alias([
