@@ -1,31 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-
-interface UsuarioOffline {
-  id: number;
-  name: string;
-  email: string;
-  evento_id: number;
-  marcar_presenca: boolean;
-  timestamp: string;
-  usuario_criado_online?: boolean;
-  usuario_id?: number;
-}
+import { sincronizarTodosOffline, getCadastrosOfflinePendentes, getCheckinsOfflinePendentes } from '../services/presencaService';
 
 interface SyncResult {
-  total: number;
-  processados: number;
-  erros: number;
-  resultados: any[];
+  success: boolean;
+  message: string;
+  detalhes: {
+    cadastros?: any;
+    checkins?: any;
+  };
 }
 
 export default function SyncOfflineData() {
-  const { } = useAuth();
-  const token = localStorage.getItem('authToken');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
-  const [dadosOffline, setDadosOffline] = useState<UsuarioOffline[]>([]);
+  const [cadastrosPendentes, setCadastrosPendentes] = useState(0);
+  const [checkinsPendentes, setCheckinsPendentes] = useState(0);
 
   // Carregar dados offline ao montar o componente
   useEffect(() => {
@@ -34,8 +25,10 @@ export default function SyncOfflineData() {
 
   // Carregar dados offline quando abrir o modal
   const loadDadosOffline = () => {
-    const dados = JSON.parse(localStorage.getItem('cadastrosOffline') || '[]');
-    setDadosOffline(dados);
+    const cadastros = getCadastrosOfflinePendentes();
+    const checkins = getCheckinsOfflinePendentes();
+    setCadastrosPendentes(cadastros);
+    setCheckinsPendentes(checkins);
   };
 
   const handleOpenModal = () => {
@@ -45,49 +38,30 @@ export default function SyncOfflineData() {
   };
 
   const handleSync = async () => {
-    if (dadosOffline.length === 0) {
+    const totalPendentes = cadastrosPendentes + checkinsPendentes;
+    if (totalPendentes === 0) {
       alert('Nenhum dado offline para sincronizar');
       return;
     }
 
     setIsLoading(true);
     try {
-      const response = await fetch('http://177.44.248.89:8001/api/sincronizar-lote', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          usuarios: dadosOffline
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
+      const resultado = await sincronizarTodosOffline();
+      setSyncResult(resultado);
+      
+      if (resultado.success) {
+        // Atualizar contadores
+        loadDadosOffline();
         
-        if (data.success) {
-          setSyncResult(data.data);
-          
-          // Limpar localStorage se tudo foi processado com sucesso
-          if (data.data.erros === 0) {
-            localStorage.removeItem('cadastrosOffline');
-            setDadosOffline([]);
-          } else {
-            // Se houveram erros, manter apenas os dados que falharam
-            // Por simplicidade, vamos limpar tudo e deixar o usuário tentar novamente
-            alert(`Sincronização parcial: ${data.data.processados} processados, ${data.data.erros} erros`);
-          }
-        } else {
-          alert('Erro na sincronização: ' + data.message);
-        }
-      } else {
-        const errorText = await response.text();
-        alert(`Erro HTTP ${response.status}: ${response.statusText}\n${errorText}`);
+        // Recarregar a página após sincronização bem-sucedida
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
       }
-    } catch (error) {
+      
+    } catch (error: any) {
       console.error('Erro ao sincronizar:', error);
-      alert('Erro ao conectar com o servidor');
+      alert(`Erro na sincronização: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -100,19 +74,16 @@ export default function SyncOfflineData() {
     loadDadosOffline();
   };
 
-  const limparDadosOffline = () => {
-    if (confirm('Tem certeza que deseja limpar todos os dados offline? Esta ação não pode ser desfeita.')) {
-      localStorage.removeItem('cadastrosOffline');
-      setDadosOffline([]);
-    }
-  };
+
+
+  const totalPendentes = cadastrosPendentes + checkinsPendentes;
 
   if (!isModalOpen) {
     return (
       <button
         onClick={handleOpenModal}
         style={{
-          backgroundColor: dadosOffline.length > 0 ? '#e74c3c' : '#6c757d',
+          backgroundColor: totalPendentes > 0 ? '#e74c3c' : '#6c757d',
           color: 'white',
           border: 'none',
           padding: '8px 16px',
@@ -123,7 +94,7 @@ export default function SyncOfflineData() {
           textDecoration: 'none'
         }}
       >
-        🔄 Sincronizar ({dadosOffline.length})
+        🔄 Sincronizar ({totalPendentes})
       </button>
     );
   }
@@ -165,62 +136,69 @@ export default function SyncOfflineData() {
           </h3>
           
           <div style={{ marginBottom: '1rem' }}>
-            <p style={{ margin: '0', color: '#6B7280' }}>
-              <strong>Dados pendentes:</strong> {dadosOffline.length}
-            </p>
-          </div>
-
-          {dadosOffline.length > 0 && (
-            <div style={{ marginBottom: '1rem' }}>
-              <h4 style={{ margin: '0 0 0.5rem 0', color: '#374151' }}>
-                Dados a serem sincronizados:
-              </h4>
+            <div style={{ 
+              backgroundColor: '#F3F4F6', 
+              padding: '1rem', 
+              borderRadius: '4px',
+              marginBottom: '1rem'
+            }}>
+              <p style={{ margin: '0 0 0.5rem 0', color: '#374151' }}>
+                <strong>📝 Cadastros pendentes:</strong> {cadastrosPendentes}
+              </p>
+              <p style={{ margin: '0', color: '#374151' }}>
+                <strong>✅ Check-ins pendentes:</strong> {checkinsPendentes}
+              </p>
+            </div>
+            
+            {totalPendentes > 0 && (
               <div style={{ 
-                backgroundColor: '#F9FAFB', 
+                backgroundColor: '#FEF3C7', 
                 padding: '1rem', 
                 borderRadius: '4px',
-                maxHeight: '200px',
-                overflow: 'auto',
-                border: '1px solid #E5E7EB'
+                border: '1px solid #F59E0B'
               }}>
-                {dadosOffline.map((item, index) => (
-                  <div key={item.id} style={{ 
-                    marginBottom: index < dadosOffline.length - 1 ? '0.5rem' : 0,
-                    padding: '0.5rem',
-                    backgroundColor: 'white',
-                    borderRadius: '4px',
-                    fontSize: '0.9rem'
-                  }}>
-                    <div><strong>{item.name}</strong> - {item.email}</div>
-                    <div style={{ color: '#6B7280', fontSize: '0.8rem' }}>
-                      Evento ID: {item.evento_id} | 
-                      Check-in: {item.marcar_presenca ? '⏰ Fazer após sincronizar' : '❌ Não'} | 
-                      {new Date(item.timestamp).toLocaleString()}
-                    </div>
-                  </div>
-                ))}
+                <p style={{ margin: '0', color: '#92400E', fontSize: '0.9rem' }}>
+                  ⚠️ <strong>Total de {totalPendentes} itens</strong> serão sincronizados com o servidor.
+                  Isso inclui criação de usuários, inscrições, presenças e certificados.
+                </p>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {syncResult && (
             <div style={{ marginBottom: '1rem' }}>
               <h4 style={{ 
-                color: syncResult.erros === 0 ? '#059669' : '#DC2626', 
+                color: syncResult.success ? '#059669' : '#DC2626', 
                 margin: '0 0 0.5rem 0' 
               }}>
-                {syncResult.erros === 0 ? '✅ Sincronização Concluída com Sucesso' : '⚠️ Sincronização Parcial'}
+                {syncResult.success ? '✅ Sincronização Concluída' : '⚠️ Erro na Sincronização'}
               </h4>
               <div style={{ backgroundColor: '#F3F4F6', padding: '1rem', borderRadius: '4px' }}>
                 <p style={{ margin: '0 0 0.5rem 0' }}>
-                  <strong>Total:</strong> {syncResult.total}
+                  <strong>Resultado:</strong> {syncResult.message}
                 </p>
-                <p style={{ margin: '0 0 0.5rem 0' }}>
-                  <strong>Processados:</strong> {syncResult.processados}
-                </p>
-                <p style={{ margin: '0' }}>
-                  <strong>Erros:</strong> {syncResult.erros}
-                </p>
+                
+                {syncResult.detalhes.cadastros && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <strong>Cadastros:</strong>
+                    <ul style={{ margin: '0.25rem 0', paddingLeft: '1rem' }}>
+                      <li>Total: {syncResult.detalhes.cadastros.detalhes.total}</li>
+                      <li>Sucessos: {syncResult.detalhes.cadastros.detalhes.sucessos}</li>
+                      <li>Falhas: {syncResult.detalhes.cadastros.detalhes.falhas}</li>
+                    </ul>
+                  </div>
+                )}
+                
+                {syncResult.detalhes.checkins && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <strong>Check-ins:</strong>
+                    <ul style={{ margin: '0.25rem 0', paddingLeft: '1rem' }}>
+                      <li>Total: {syncResult.detalhes.checkins.detalhes.total}</li>
+                      <li>Sucessos: {syncResult.detalhes.checkins.detalhes.sucessos}</li>
+                      <li>Falhas: {syncResult.detalhes.checkins.detalhes.falhas}</li>
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -240,23 +218,7 @@ export default function SyncOfflineData() {
               Fechar
             </button>
             
-            {dadosOffline.length > 0 && (
-              <button
-                onClick={limparDadosOffline}
-                style={{
-                  backgroundColor: '#DC2626',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                🗑️ Limpar Dados
-              </button>
-            )}
-            
-            {dadosOffline.length > 0 && !syncResult && (
+            {totalPendentes > 0 && !syncResult && (
               <button
                 onClick={handleSync}
                 disabled={isLoading}
@@ -273,13 +235,12 @@ export default function SyncOfflineData() {
               </button>
             )}
 
-            {syncResult && syncResult.erros > 0 && (
+            {syncResult && !syncResult.success && (
               <button
                 onClick={() => {
                   setSyncResult(null);
-                  handleSync();
+                  loadDadosOffline();
                 }}
-                disabled={isLoading}
                 style={{
                   backgroundColor: '#F59E0B',
                   color: 'white',

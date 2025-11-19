@@ -486,11 +486,17 @@ class PresencaController extends Controller
                     ];
                 });
 
+            Log::info('Presenças encontradas:', [
+                'user_id' => $userId,
+                'total_presencas' => $presencas->count(),
+                'presencas_ids' => $presencas->pluck('id')->toArray()
+            ]);
+
             return response()->json([
                 'success' => true,
                 'data' => $presencas,
                 'total' => $presencas->count()
-            ], 200);
+            ]);
 
         } catch (Exception $e) {
             Log::error('Erro ao buscar presenças do evento', [
@@ -512,6 +518,12 @@ class PresencaController extends Controller
      */
     public function getPresencasPorUsuario(Request $request, $userId)
     {
+        Log::info('=== BUSCANDO PRESENÇAS POR USUÁRIO ===', [
+            'user_id' => $userId,
+            'timestamp' => now()->toDateTimeString(),
+            'ip' => $request->ip()
+        ]);
+
         try {
             // Buscar presenças do usuário com join na tabela inscricoes
             $presencas = DB::table('presencas')
@@ -592,11 +604,37 @@ class PresencaController extends Controller
                 'inscricao_id' => $inscricaoId
             ]);
 
-            // Tentar gerar certificado com timeout maior e URL do container
-            $response = Http::timeout(30)->post('http://localhost:8005/api/gerar-certificado', [
-                'user_id' => $userId,
-                'evento_id' => $eventoId
-            ]);
+            // Tentar gerar certificado com diferentes URLs (comunicação entre containers)
+            $urls = [
+                'http://eventos_certificados:8000/api/gerar-certificado', // Nome do container + porta interna
+                'http://177.44.248.89:8005/api/gerar-certificado'        // IP externo como fallback
+            ];
+
+            $response = null;
+            $lastError = null;
+
+            foreach ($urls as $url) {
+                try {
+                    Log::info("Tentando gerar certificado na URL: {$url}");
+                    $response = Http::timeout(30)->post($url, [
+                        'user_id' => $userId,
+                        'evento_id' => $eventoId
+                    ]);
+
+                    if ($response->successful()) {
+                        Log::info("Certificado gerado com sucesso na URL: {$url}");
+                        break; // Sai do loop se funcionou
+                    }
+                } catch (Exception $urlException) {
+                    $lastError = $urlException;
+                    Log::warning("Falha na URL {$url}: " . $urlException->getMessage());
+                    continue;
+                }
+            }
+
+            if (!$response || !$response->successful()) {
+                throw new Exception('Falha em todas as URLs para gerar certificado. Último erro: ' . ($lastError ? $lastError->getMessage() : 'Nenhuma resposta válida'));
+            }
 
             if ($response->successful()) {
                 $responseData = $response->json();

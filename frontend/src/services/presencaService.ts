@@ -646,7 +646,7 @@ export const sincronizarCheckinsOffline = async (): Promise<{
       data_hora: c.data_hora!
     }));
 
-    const { data } = await privateApi.post('/checkin/offline-sync', { checkins });
+    const { data } = await privateApi.post('/check-in/offline-sync', { checkins });
 
     // Marcar como sincronizados
     const todosCheckins = getCheckinsOffline();
