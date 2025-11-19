@@ -184,7 +184,7 @@ services:
       DB_PASSWORD: eventos123
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: "eventos-certificados-secret-key-change-in-production"
-      ALLOWED_HOSTS: "localhost,127.0.0.1,177.44.248.89,certificados-service"
+      ALLOWED_HOSTS: "localhost,127.0.0.1,177.44.248.89,certificados-service,eventos_certificados"
     ports:
       - "8005:8000"
     volumes:
