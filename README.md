@@ -11,12 +11,7 @@ Sistema completo de gestão de eventos com arquitetura de microserviços, desenv
 │                 │    │              FRONTEND                │
 │   USUÁRIOS      │◄──►│         React + TypeScript           │
 │                 │    │            Porta: 80                 │
-└─────────────────┘    └──────────────┬───────────────────────┘
-                                     │
-                       ┌─────────────┴───────────────┐
-                       │        API GATEWAY          │
-                       │     (Acesso Direto)         │
-                       └─┬─┬─┬─┬─┬───────────────────┘
+└─────────────────┘    └────────────────────────────────────┘
                          │ │ │ │ │
           ┌──────────────┘ │ │ │ └──────────────┐
           │                │ │ │                │
@@ -196,26 +191,6 @@ Authorization: Bearer {token}
 - **404**: Recurso não encontrado
 - **422**: Erro de validação
 - **500**: Erro interno do servidor
-
-#### Formato das Respostas
-```json
-{
-  "success": true,
-  "data": {},
-  "message": "Operação realizada com sucesso"
-}
-```
-
-#### Paginação
-```json
-{
-  "data": [],
-  "current_page": 1,
-  "last_page": 5,
-  "per_page": 15,
-  "total": 73
-}
-```
 
 ## 3. Modelo do Banco de Dados
 
