@@ -60,6 +60,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'apps.certificados.middleware.LogTodosRequestsMiddleware',  # Log de requisições
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -181,21 +182,37 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'seuemail@gmail.com')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'suasenha')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', f'Sistema de Eventos <{EMAIL_HOST_USER}>')
 
-# URLs dos outros microserviços
+# URLs dos outros microserviços - Prioridade para containers Docker
 MICROSERVICES_URLS = {
-    'auth': 'http://177.44.248.89:8001',
-    'eventos': 'http://177.44.248.89:8002',
-    'inscricoes': 'http://177.44.248.89:8003',
-    'presenca': 'http://177.44.248.89:8004',
+    'auth': {
+        'primary': 'http://eventos_auth:8000',
+        'fallback': 'http://177.44.248.89:8001'
+    },
+    'eventos': {
+        'primary': 'http://eventos_eventos:8000', 
+        'fallback': 'http://177.44.248.89:8002'
+    },
+    'inscricoes': {
+        'primary': 'http://eventos_inscricoes:8000',
+        'fallback': 'http://177.44.248.89:8003'
+    },
+    'presenca': {
+        'primary': 'http://eventos_presenca:8000',
+        'fallback': 'http://177.44.248.89:8004'
+    }
 }
 
-# Logging
+# Configuração de logging detalhado
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'format': '{levelname} {asctime} {module} {funcName} {lineno} {message}',
+            'style': '{',
+        },
+        'console': {
+            'format': '{levelname} {asctime} {message}',
             'style': '{',
         },
         'simple': {
@@ -204,30 +221,51 @@ LOGGING = {
         },
     },
     'handlers': {
-        'file': {
-            'level': 'INFO',
+        'file_detalhado': {
+            'level': 'DEBUG',
             'class': 'logging.FileHandler',
             'filename': BASE_DIR / 'logs' / 'certificados.log',
             'formatter': 'verbose',
         },
-        'console': {
+        'console_detalhado': {
             'level': 'DEBUG',
             'class': 'logging.StreamHandler',
-            'formatter': 'simple',
+            'formatter': 'console',
+        },
+        'file_requests': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler', 
+            'filename': BASE_DIR / 'logs' / 'requests.log',
+            'formatter': 'verbose',
         },
     },
     'root': {
-        'handlers': ['console', 'file'],
-        'level': 'INFO',
+        'handlers': ['console_detalhado', 'file_detalhado'],
+        'level': 'DEBUG',
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console_detalhado', 'file_detalhado'],
             'level': 'INFO',
             'propagate': False,
         },
+        'django.request': {
+            'handlers': ['console_detalhado', 'file_requests'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
         'apps.certificados': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console_detalhado', 'file_detalhado'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'apps.certificados.middleware': {
+            'handlers': ['console_detalhado', 'file_requests'],
+            'level': 'DEBUG', 
+            'propagate': False,
+        },
+        'apps.certificados.views': {
+            'handlers': ['console_detalhado', 'file_detalhado'],
             'level': 'DEBUG',
             'propagate': False,
         },

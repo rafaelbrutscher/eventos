@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.template import Template, Context
 from django.conf import settings
+from django.utils import timezone
 import logging
 import os
 import requests
@@ -25,18 +26,50 @@ class CertificadoViewSet(viewsets.ModelViewSet):
     serializer_class = CertificadoSerializer
     permission_classes = [AllowAny]  # Simplificado para desenvolvimento
     
+    def dispatch(self, request, *args, **kwargs):
+        """Log para requisições no ViewSet"""
+        print(f'\nAPI CERTIFICADOS CHAMADA')
+        print(f'Método: {request.method}')
+        print(f'URL: {request.get_full_path()}')
+        print(f'IP: {request.META.get("REMOTE_ADDR", "N/A")}')
+        print(f'User-Agent: {request.META.get("HTTP_USER_AGENT", "N/A")[:100]}')
+        print(f'Params: {dict(request.GET)}')
+        if request.method in ['POST', 'PUT', 'PATCH']:
+            print(f'Body: {request.body[:500]}')
+        print(f'FIM LOG REQUEST')
+        
+        logger.info(f'\nAPI CERTIFICADOS CHAMADA')
+        logger.info(f'Método: {request.method} | URL: {request.get_full_path()}')
+        logger.info(f'IP: {request.META.get("REMOTE_ADDR", "N/A")} | Params: {dict(request.GET)}')
+        if request.method in ['POST', 'PUT', 'PATCH']:
+            logger.info(f'Body: {request.body[:500]}')
+            
+        return super().dispatch(request, *args, **kwargs)
+    
     def get_queryset(self):
+        print(f'GET_QUERYSET chamado')
+        logger.info(f'GET_QUERYSET - Listando certificados')
+        
         queryset = super().get_queryset()
         
         # Filtros opcionais
         evento_id = self.request.query_params.get('evento_id')
         participante_id = self.request.query_params.get('participante_id')
         
+        print(f'Filtros aplicados - evento_id: {evento_id}, participante_id: {participante_id}')
+        logger.info(f'Filtros: evento_id={evento_id}, participante_id={participante_id}')
+        
         if evento_id:
             queryset = queryset.filter(evento_id=evento_id)
+            print(f'Filtrado por evento_id: {evento_id}')
         
         if participante_id:
             queryset = queryset.filter(participante_id=participante_id)
+            print(f'Filtrado por participante_id: {participante_id}')
+        
+        total = queryset.count()
+        print(f'Total de certificados encontrados: {total}')
+        logger.info(f'Total de certificados retornados: {total}')
         
         return queryset.order_by('-created_at')
     
@@ -44,7 +77,14 @@ class CertificadoViewSet(viewsets.ModelViewSet):
     def validar(self, request, codigo=None):
         """Validar um certificado pelo código"""
         
+        print(f'\nVALIDAÇÃO DE CERTIFICADO (ViewSet)')
+        print(f'Código recebido: {codigo}')
+        logger.info(f'\nVALIDAÇÃO DE CERTIFICADO (ViewSet)')
+        logger.info(f'Código para validação: {codigo}')
+        
         if not codigo:
+            print('Código não fornecido')
+            logger.error('Código de validação não fornecido')
             return Response(
                 {'erro': 'código de validação é obrigatório'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -77,7 +117,20 @@ class CertificadoViewSet(viewsets.ModelViewSet):
 @permission_classes([AllowAny])
 def validar_certificado_direto(request, codigo):
     """Função direta para validar certificado - rota: /api/certificados/validar/{codigo}/"""
-    logger.info(f'🔍 Validando certificado: {codigo}')
+    
+    # Log da requisição
+    print(f'\nVALIDAÇÃO DIRETA DE CERTIFICADO')
+    print(f'Método: {request.method}')
+    print(f'URL: {request.get_full_path()}')
+    print(f'IP: {request.META.get("REMOTE_ADDR", "N/A")}')
+    print(f'Código: {codigo}')
+    print(f'Timestamp: {timezone.now()}')
+    print(f'INICIANDO VALIDAÇÃO')
+    
+    logger.info(f'\nVALIDAÇÃO DIRETA DE CERTIFICADO')
+    logger.info(f'Método: {request.method} | URL: {request.get_full_path()}')
+    logger.info(f'IP: {request.META.get("REMOTE_ADDR", "N/A")} | Código: {codigo}')
+    logger.info(f'Timestamp: {timezone.now()}')
     
     if not codigo:
         return Response(
@@ -88,7 +141,7 @@ def validar_certificado_direto(request, codigo):
     try:
         certificado = get_object_or_404(Certificado, codigo_validacao=codigo)
         
-        logger.info(f'✅ Certificado encontrado: {certificado.participante_nome} - {certificado.evento_nome}')
+        logger.info(f'Certificado encontrado: {certificado.participante_nome} - {certificado.evento_nome}')
         
         return Response({
             'valido': True,
@@ -101,7 +154,7 @@ def validar_certificado_direto(request, codigo):
         })
         
     except Http404:
-        logger.warning(f'❌ Certificado não encontrado: {codigo}')
+        logger.warning(f'Certificado não encontrado: {codigo}')
         
         return Response({
             'valido': False,
@@ -114,40 +167,75 @@ def validar_certificado_direto(request, codigo):
 @permission_classes([AllowAny])
 def listar_eventos_participados(request):
     """Lista eventos que o usuário participou e pode gerar certificado"""
+    
+    # Log da requisição
+    print(f'\nLISTAGEM DE EVENTOS PARTICIPADOS')
+    print(f'Método: {request.method}')
+    print(f'URL: {request.get_full_path()}')
+    print(f'IP: {request.META.get("REMOTE_ADDR", "N/A")}')
+    print(f'Params: {dict(request.GET)}')
+    print(f'Timestamp: {timezone.now()}')
+    print(f'PROCESSANDO LISTAGEM')
+    
+    logger.info(f'\nLISTAGEM DE EVENTOS PARTICIPADOS')
+    logger.info(f'Método: {request.method} | URL: {request.get_full_path()}')
+    logger.info(f'IP: {request.META.get("REMOTE_ADDR", "N/A")} | Params: {dict(request.GET)}')
+    logger.info(f'Timestamp: {timezone.now()}')
+    
     try:
         # Obter user_id do parâmetro
         user_id = request.GET.get('user_id')
+        print(f'User ID recebido: {user_id}')
+        logger.info(f'User ID recebido: {user_id}')
+        
         if not user_id:
+            logger.error('user_id não fornecido')
             return Response(
                 {'erro': 'user_id é obrigatório'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Buscar presenças do usuário consultando diretamente o presença-service
-        try:
-            # Usar IP externo para evitar problemas de DNS do container
-            presencas_response = requests.get(
-                f'http://177.44.248.89:8004/api/presencas/usuario/{user_id}',
-                timeout=30,  # Timeout aumentado para 30 segundos
-                headers={'Content-Type': 'application/json'}
-            )
-            
-            if presencas_response.status_code != 200:
-                logger.warning(f'Erro ao buscar presenças: status {presencas_response.status_code}')
-                return Response(
-                    {'success': True, 'data': [], 'total': 0}, 
-                    status=status.HTTP_200_OK
+        logger.info(f'Buscando presenças do usuário {user_id}')
+        
+        # Buscar presenças com múltiplas URLs de fallback
+        presencas_urls = [
+            f'http://eventos_presenca:8000/api/presencas/usuario/{user_id}',
+            f'http://127.0.0.1:8004/api/presencas/usuario/{user_id}',
+            f'http://177.44.248.89:8004/api/presencas/usuario/{user_id}'
+        ]
+        
+        presencas_response = None
+        for url in presencas_urls:
+            try:
+                logger.info(f'Tentando buscar presenças em: {url}')
+                presencas_response = requests.get(
+                    url,
+                    timeout=5,  # Timeout menor para cada tentativa
+                    headers={'Content-Type': 'application/json'}
                 )
-        except requests.exceptions.Timeout:
-            logger.warning('Timeout ao buscar presenças do usuário')
+                
+                if presencas_response.status_code == 200:
+                    logger.info(f'Presenças encontradas em: {url}')
+                    break
+                else:
+                    logger.warning(f'Status {presencas_response.status_code} em: {url}')
+                    presencas_response = None
+                    
+            except requests.exceptions.Timeout:
+                logger.warning(f'Timeout em: {url}')
+                continue
+            except requests.exceptions.RequestException as e:
+                logger.error(f'Erro de rede em {url}: {str(e)}')
+                continue
+            except Exception as e:
+                logger.error(f'Erro inesperado em {url}: {str(e)}')
+                continue
+        
+        # Se não conseguiu buscar presenças, retorna lista vazia
+        if not presencas_response or presencas_response.status_code != 200:
+            logger.warning('Não foi possível buscar presenças em nenhuma URL')
             return Response(
-                {'success': True, 'data': [], 'total': 0}, 
-                status=status.HTTP_200_OK
-            )
-        except requests.exceptions.RequestException as e:
-            logger.error(f'Erro de rede ao buscar presenças: {str(e)}')
-            return Response(
-                {'success': True, 'data': [], 'total': 0}, 
+                {'success': True, 'data': [], 'total': 0, 'message': 'Serviço de presenças temporáriamente indisponível'}, 
                 status=status.HTTP_200_OK
             )
         
@@ -167,30 +255,39 @@ def listar_eventos_participados(request):
                 continue
             eventos_processados.add(evento_id)
             
-            # Buscar dados do evento
-            try:
-                evento_response = requests.get(
-                    f'http://177.44.248.89:8002/api/eventos/{evento_id}',
-                    timeout=5  # Timeout menor para cada evento
-                )
-                
-                if evento_response.status_code != 200:
-                    logger.warning(f'Evento {evento_id} não encontrado ou erro no serviço')
-                    continue
+            # Buscar dados do evento com múltiplas URLs
+            evento_urls = [
+                f'http://eventos_eventos:8000/api/eventos/{evento_id}',
+                f'http://127.0.0.1:8002/api/eventos/{evento_id}',
+                f'http://177.44.248.89:8002/api/eventos/{evento_id}'
+            ]
+            
+            evento = None
+            for evento_url in evento_urls:
+                try:
+                    logger.info(f'Buscando evento {evento_id} em: {evento_url}')
+                    evento_response = requests.get(evento_url, timeout=3)
                     
-                evento = evento_response.json().get('data')
-                if not evento:
-                    logger.warning(f'Dados do evento {evento_id} inválidos')
-                    continue
+                    if evento_response.status_code == 200:
+                        evento = evento_response.json().get('data')
+                        if evento:
+                            logger.info(f'Evento {evento_id} encontrado: {evento.get("nome", "N/A")}')
+                            break
                     
-            except requests.exceptions.Timeout:
-                logger.warning(f'Timeout ao buscar evento {evento_id}')
-                continue
-            except requests.exceptions.RequestException as e:
-                logger.error(f'Erro ao buscar evento {evento_id}: {str(e)}')
-                continue
-            except Exception as e:
-                logger.error(f'Erro inesperado ao processar evento {evento_id}: {str(e)}')
+                    logger.warning(f'Status {evento_response.status_code} para evento {evento_id} em {evento_url}')
+                    
+                except requests.exceptions.Timeout:
+                    logger.warning(f'Timeout buscando evento {evento_id} em {evento_url}')
+                    continue
+                except requests.exceptions.RequestException as e:
+                    logger.error(f'Erro de rede buscando evento {evento_id} em {evento_url}: {str(e)}')
+                    continue
+                except Exception as e:
+                    logger.error(f'Erro inesperado buscando evento {evento_id} em {evento_url}: {str(e)}')
+                    continue
+            
+            if not evento:
+                logger.warning(f'Evento {evento_id} não encontrado em nenhuma URL')
                 continue
             
             # Verificar se evento já terminou (pode gerar certificado)
@@ -250,15 +347,32 @@ def listar_eventos_participados(request):
 @permission_classes([AllowAny])
 def listar_meus_certificados(request):
     """Lista diretamente os certificados do usuário - API simplificada"""
+    
+    # Log da requisição
+    print(f'\nLISTAGEM DE CERTIFICADOS')
+    print(f'Método: {request.method}')
+    print(f'URL: {request.get_full_path()}')
+    print(f'IP: {request.META.get("REMOTE_ADDR", "N/A")}')
+    print(f'Params: {dict(request.GET)}')
+    print(f'Timestamp: {timezone.now()}')
+    print(f'PROCESSANDO LISTAGEM')
+    
+    logger.info(f'\nLISTAGEM DE CERTIFICADOS')
+    logger.info(f'Método: {request.method} | URL: {request.get_full_path()}')
+    logger.info(f'IP: {request.META.get("REMOTE_ADDR", "N/A")} | Params: {dict(request.GET)}')
+    logger.info(f'Timestamp: {timezone.now()}')
+    
     try:
         user_id = request.GET.get('user_id')
+        print(f'User ID para certificados: {user_id}')
+        logger.info(f'🔍 User ID para certificados: {user_id}')
+        
         if not user_id:
+            logger.error('user_id não fornecido para certificados')
             return Response(
                 {'erro': 'user_id é obrigatório'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        logger.info(f'🔍 Listando certificados do usuário: {user_id}')
         
         # Buscar certificados diretamente
         certificados = Certificado.objects.filter(
@@ -281,7 +395,7 @@ def listar_meus_certificados(request):
                 'can_download': cert.gerado and cert.disponivel_usuario
             })
         
-        logger.info(f'✅ Encontrados {len(certificados_list)} certificados para o usuário {user_id}')
+        logger.info(f'Encontrados {len(certificados_list)} certificados para o usuário {user_id}')
         
         return Response({
             'success': True,
@@ -290,7 +404,7 @@ def listar_meus_certificados(request):
         })
         
     except Exception as e:
-        logger.error(f'❌ Erro ao listar certificados do usuário: {str(e)}', exc_info=True)
+        logger.error(f'Erro ao listar certificados do usuário: {str(e)}', exc_info=True)
         return Response({
             'success': False,
             'erro': 'Erro interno ao buscar certificados',
@@ -302,9 +416,27 @@ def listar_meus_certificados(request):
 @permission_classes([AllowAny])
 def gerar_certificado_usuario(request):
     """Permite ao usuário gerar seu próprio certificado"""
+    
+    # Log da requisição
+    print(f'\nGERAÇÃO DE CERTIFICADO PELO USUÁRIO')
+    print(f'Método: {request.method}')
+    print(f'URL: {request.get_full_path()}')
+    print(f'IP: {request.META.get("REMOTE_ADDR", "N/A")}')
+    print(f'Body: {request.data}')
+    print(f'Timestamp: {timezone.now()}')
+    print(f'PROCESSANDO GERAÇÃO')
+    
+    logger.info(f'\nGERAÇÃO DE CERTIFICADO PELO USUÁRIO')
+    logger.info(f'Método: {request.method} | URL: {request.get_full_path()}')
+    logger.info(f'IP: {request.META.get("REMOTE_ADDR", "N/A")} | Body: {request.data}')
+    logger.info(f'Timestamp: {timezone.now()}')
+    
     try:
         evento_id = request.data.get('evento_id')
         user_id = request.data.get('user_id')
+        
+        print(f'Parâmetros: evento_id={evento_id}, user_id={user_id}')
+        logger.info(f'Parâmetros: evento_id={evento_id}, user_id={user_id}')
         
         if not evento_id or not user_id:
             return Response(
@@ -385,8 +517,25 @@ def gerar_certificado_usuario(request):
 @permission_classes([AllowAny])
 def download_certificado(request, certificado_id):
     """Visualizar/Imprimir certificado usando template existente"""
+    
+    # Log da requisição
+    print(f'\nDOWNLOAD DE CERTIFICADO')
+    print(f'Método: {request.method}')
+    print(f'URL: {request.get_full_path()}')
+    print(f'IP: {request.META.get("REMOTE_ADDR", "N/A")}')
+    print(f'Certificado ID: {certificado_id}')
+    print(f'Timestamp: {timezone.now()}')
+    print(f'PROCESSANDO DOWNLOAD')
+    
+    logger.info(f'\nDOWNLOAD DE CERTIFICADO')
+    logger.info(f'Método: {request.method} | URL: {request.get_full_path()}')
+    logger.info(f'IP: {request.META.get("REMOTE_ADDR", "N/A")} | Certificado ID: {certificado_id}')
+    logger.info(f'Timestamp: {timezone.now()}')
+    
     try:
         certificado = get_object_or_404(Certificado, id=certificado_id)
+        print(f'Certificado encontrado: {certificado.participante_nome} - {certificado.evento_nome}')
+        logger.info(f'Certificado encontrado: {certificado.participante_nome} - {certificado.evento_nome}')
         
         # Buscar dados atuais do usuário e evento
         user_response = requests.get(f'http://177.44.248.89:8001/api/usuarios/{certificado.participante_id}', timeout=5)

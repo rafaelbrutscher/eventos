@@ -1,8 +1,15 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+import logging
+from django.utils import timezone
 
 from .views import CertificadoViewSet, listar_eventos_participados, listar_meus_certificados, gerar_certificado_usuario, download_certificado, validar_certificado_direto
 from .gerar_certificado_api import gerar_certificado
+
+# Log de inicialização das URLs
+logger = logging.getLogger(__name__)
+print(f'URLs CERTIFICADOS CARREGADAS EM: {timezone.now()}')
+logger.info(f'URLs CERTIFICADOS CARREGADAS EM: {timezone.now()}')
 
 router = DefaultRouter()
 router.register(r'certificados', CertificadoViewSet)
