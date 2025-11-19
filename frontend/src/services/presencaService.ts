@@ -162,9 +162,31 @@ const getCacheListasPresenca = (): Record<number, ListaPresencaResponse & { time
   }
 };
 
-// Verificar se está online
+// Verificar se está online (com verificação mais robusta)
 const isOnline = (): boolean => {
-  return navigator.onLine;
+  if (!navigator.onLine) {
+    console.log('CONNECTIVITY: navigator.onLine = false');
+    return false;
+  }
+  
+  // Verificar se há algum erro de conectividade recente
+  const lastConnError = localStorage.getItem('last_connection_error');
+  if (lastConnError) {
+    const errorTime = parseInt(lastConnError);
+    const timeSinceError = Date.now() - errorTime;
+    // Se teve erro há menos de 10 segundos, considerar offline
+    if (timeSinceError < 10000) {
+      console.log('CONNECTIVITY: Erro de conexão recente, considerando offline');
+      return false;
+    }
+  }
+  
+  return true;
+};
+
+// Marcar erro de conectividade
+const markConnectionError = (): void => {
+  localStorage.setItem('last_connection_error', Date.now().toString());
 };
 
 // --- Gerenciamento de Cache Completo Offline ---
@@ -457,21 +479,37 @@ export const realizarCheckin = async (payload: CheckinPayload): Promise<CheckinR
     tipo: payload.tipo || (isOnline() ? 'online' : 'offline')
   };
 
-  // Tentar check-in online primeiro
-  if (isOnline()) {
+  const connectivityCheck = {
+    isOnline: isOnline(),
+    navigatorOnline: navigator.onLine,
+    forceOffline: checkinData.tipo === 'offline',
+    shouldTryOnline: false
+  };
+
+  // Determinar se deve tentar online
+  connectivityCheck.shouldTryOnline = connectivityCheck.isOnline && 
+                                     connectivityCheck.navigatorOnline && 
+                                     !connectivityCheck.forceOffline;
+
+  console.log('CHECKIN: Análise de conectividade:', connectivityCheck);
+
+  // Se deve e pode tentar online, tentar primeiro
+  if (connectivityCheck.shouldTryOnline) {
     try {
+      console.log('CHECKIN: Tentando check-in online...');
       const { data } = await privateApi.post<CheckinResponse>('/check-in', checkinData);
-      console.log('Check-in realizado online:', data);
+      console.log('CHECKIN: Check-in realizado online com sucesso:', data);
       return data;
     } catch (error: any) {
-      console.error('Erro no check-in online:', error);
-      // Se há internet mas erro na API, propagar o erro (não salvar offline)
-      throw new Error(error.response?.data?.message || 'Erro ao realizar check-in online');
+      console.error('CHECKIN: Erro no check-in online, salvando offline:', error);
+      // Marcar erro de conectividade para futuras verificações
+      markConnectionError();
+      // Se falhou online, salvar offline como fallback
     }
   }
 
-  // Só salva offline se realmente não há internet
-  console.log('Sem internet - salvando check-in offline');
+  // Modo offline (sem internet OU falha no online)
+  console.log('CHECKIN: Salvando check-in offline');
   const checkinOffline: CheckinOffline = {
     ...checkinData,
     id: `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
