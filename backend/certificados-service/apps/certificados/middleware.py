@@ -49,44 +49,24 @@ class LogTodosRequestsMiddleware:
             'query_params': dict(request.GET),
         }
         
-        # Logs de requisições
-        
-        # Print direto
-        print(f'\nREQUISIÇÃO HTTP INTERCEPTADA')
-        print(f'Timestamp: {request_data["timestamp"]}')
-        print(f'Método: {request_data["method"]} {request_data["url"]}')
-        print(f'Host: {request_data["host"]} | IP: {request_data["remote_addr"]}')
-        print(f'User-Agent: {request_data["user_agent"][:100]}')
-        print(f'Content-Type: {request_data["content_type"]} | Length: {request_data["content_length"]}')
-        print(f'Params: {request_data["query_params"]}')
-        
-        # 2. STDOUT DIRETO (FORÇAR SAÍDA IMEDIATA)
-        sys.stdout.write(f"STDOUT LOG: {request.method} {request.get_full_path()} - {timezone.now()}\n")
-        sys.stdout.flush()
-        
-        # 3. STDERR PARA GARANTIR
-        sys.stderr.write(f"STDERR LOG: {request.method} {request.get_full_path()} - {timezone.now()}\n")
-        sys.stderr.flush()
+        # Log da requisição
+        print(f'\nREQUISICAO: {request_data["method"]} {request_data["url"]}')
+        print(f'IP: {request_data["remote_addr"]} | Host: {request_data["host"]}')
+        if request_data["query_params"]:
+            print(f'Params: {request_data["query_params"]}')
         
         # Log do body para POST/PUT/PATCH
         if request.method in ['POST', 'PUT', 'PATCH']:
             try:
-                body_content = request.body[:1000]  # Limitar a 1000 caracteres
+                body_content = request.body[:500]  # Limitar a 500 caracteres
                 print(f'Body: {body_content}')
                 request_data['body_preview'] = body_content.decode('utf-8', errors='ignore')
-                sys.stdout.write(f"BODY: {body_content}\n")
-                sys.stdout.flush()
             except Exception as e:
                 print(f'Erro ao ler body: {str(e)}')
                 request_data['body_error'] = str(e)
         
-        print(f'FIM REQUISIÇÃO\n')
-        
-        # Múltiplos loggers
-        log_message = f'REQUISIÇÃO: {json.dumps(request_data, ensure_ascii=False)}'
-        logger.info(log_message)
-        django_logger.info(log_message)
-        root_logger.info(log_message)
+        # Log em arquivo
+        logger.info(f'REQUISICAO: {json.dumps(request_data, ensure_ascii=False)}')
 
     def log_response(self, request, response):
         """Log da resposta HTTP"""
@@ -100,24 +80,8 @@ class LogTodosRequestsMiddleware:
             'content_length': len(response.content) if hasattr(response, 'content') else 0
         }
         
-        # Log no console
-        print(f'\nRESPOSTA HTTP ENVIADA')
-        print(f'URL: {response_data["url"]}')
-        print(f'Status: {response_data["status_code"]}')
-        print(f'Content-Type: {response_data["content_type"]}')
-        print(f'Content-Length: {response_data["content_length"]}')
+        # Log da resposta
+        print(f'RESPOSTA: {response_data["status_code"]} para {response_data["method"]} {response_data["url"]}')
         
-        # Mostrar preview do conteúdo da resposta
-        if hasattr(response, 'content') and response.content:
-            try:
-                content_preview = response.content[:500]  # Primeiros 500 caracteres
-                print(f'Conteúdo (preview): {content_preview}')
-                response_data['content_preview'] = content_preview.decode('utf-8', errors='ignore')
-            except Exception as e:
-                print(f'Erro ao mostrar conteúdo: {str(e)}')
-                response_data['content_error'] = str(e)
-        
-        print(f'FIM LOG RESPOSTA\n')
-        
-        # Log no arquivo
-        logger.info(f'RESPOSTA HTTP: {json.dumps(response_data, ensure_ascii=False, indent=2)}')
+        # Log em arquivo
+        logger.info(f'RESPOSTA HTTP: {json.dumps(response_data, ensure_ascii=False)}')

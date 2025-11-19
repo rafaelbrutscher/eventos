@@ -291,12 +291,10 @@ def listar_eventos_participados(request):
                 continue
             
             # Verificar se evento já terminou (pode gerar certificado)
-            from datetime import datetime
-            from django.utils import timezone
-            
             try:
                 data_fim_str = evento.get('data_fim', '')
                 if data_fim_str:
+                    from datetime import datetime
                     if 'T' in data_fim_str:
                         data_fim = datetime.fromisoformat(data_fim_str.replace('Z', '+00:00'))
                     else:
@@ -306,7 +304,8 @@ def listar_eventos_participados(request):
                     pode_gerar_certificado = data_fim < timezone.now()
                 else:
                     pode_gerar_certificado = True  # Se não tem data fim, permite gerar
-            except:
+            except Exception as e:
+                logger.warning(f'Erro ao processar data do evento {evento_id}: {str(e)}')
                 pode_gerar_certificado = True  # Em caso de erro, permite gerar
             
             # Verificar se certificado já existe

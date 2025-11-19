@@ -867,6 +867,7 @@ class PresencaController extends Controller
                                 ->post($authUrl, [
                                     'name' => $cadastro['usuario']['name'],
                                     'email' => $cadastro['usuario']['email'],
+                                    'evento_id' => $cadastro['inscricao']['evento_id'], // Adicionar evento_id para criar inscrição junto
                                 ]);
 
                             if ($responseUsuario->successful()) {
@@ -895,25 +896,33 @@ class PresencaController extends Controller
 
                     $dadosUsuario = $responseUsuario->json();
                     $usuarioId = $dadosUsuario['data']['user']['id'] ?? null;
+                    $inscricaoJaCriada = isset($dadosUsuario['data']['inscricao']) && $dadosUsuario['data']['inscricao'] !== null;
 
                     if (!$usuarioId) {
                         throw new Exception('ID do usuário não retornado na resposta: ' . json_encode($dadosUsuario));
                     }
 
-                    Log::info('👤 USUÁRIO CRIADO', ['usuario_id' => $usuarioId]);
+                    Log::info('👤 USUÁRIO CRIADO', [
+                        'usuario_id' => $usuarioId,
+                        'inscricao_ja_criada' => $inscricaoJaCriada ? 'SIM' : 'NÃO'
+                    ]);
 
-                    // 2. Criar inscrição com múltiplas URLs
-                    $urlsInscricoes = [
-                        'http://eventos_inscricoes:8000/api/inscricoes',
-                        'http://127.0.0.1:8003/api/inscricoes',
-                        'http://177.44.248.89:8003/api/inscricoes'
-                    ];
-
+                    // 2. Criar inscrição apenas se não foi criada junto com o usuário
                     $responseInscricao = null;
-                    $lastInscricaoError = null;
 
-                    foreach ($urlsInscricoes as $inscricaoUrl) {
-                        try {
+                    if (!$inscricaoJaCriada) {
+                        Log::info('📝 CRIANDO INSCRIÇÃO SEPARADAMENTE');
+
+                        $urlsInscricoes = [
+                            'http://eventos_inscricoes:8000/api/inscricoes',
+                            'http://127.0.0.1:8003/api/inscricoes',
+                            'http://177.44.248.89:8003/api/inscricoes'
+                        ];
+
+                        $lastInscricaoError = null;
+
+                        foreach ($urlsInscricoes as $inscricaoUrl) {
+                            try {
                             Log::info('TENTANDO CRIAR INSCRIÇÃO', ['url' => $inscricaoUrl]);
 
                             $responseInscricao = Http::withToken($request->bearerToken())
@@ -945,18 +954,28 @@ class PresencaController extends Controller
                         }
                     }
 
-                    if (!$responseInscricao || !$responseInscricao->successful()) {
-                        throw new Exception('Falha ao criar inscrição em todas as URLs. Último erro: ' . ($lastInscricaoError ? $lastInscricaoError->getMessage() : $responseInscricao->body()));
+                        if (!$responseInscricao || !$responseInscricao->successful()) {
+                            throw new Exception('Falha ao criar inscrição em todas as URLs. Último erro: ' . ($lastInscricaoError ? $lastInscricaoError->getMessage() : $responseInscricao->body()));
+                        }
+
+                        $dadosInscricao = $responseInscricao->json();
+                        $inscricaoId = $dadosInscricao['data']['id'] ?? null;
+
+                        if (!$inscricaoId) {
+                            throw new Exception('ID da inscrição não retornado na resposta: ' . json_encode($dadosInscricao));
+                        }
+
+                        Log::info('📝 INSCRIÇÃO CRIADA SEPARADAMENTE', ['inscricao_id' => $inscricaoId]);
+                    } else {
+                        // Inscrição já foi criada no cadastro rápido
+                        $inscricaoId = $dadosUsuario['data']['inscricao']['id'] ?? null;
+
+                        if (!$inscricaoId) {
+                            throw new Exception('ID da inscrição não encontrado nos dados do usuário: ' . json_encode($dadosUsuario));
+                        }
+
+                        Log::info('📝 INSCRIÇÃO JÁ EXISTIA (criada com usuário)', ['inscricao_id' => $inscricaoId]);
                     }
-
-                    $dadosInscricao = $responseInscricao->json();
-                    $inscricaoId = $dadosInscricao['data']['id'] ?? null;
-
-                    if (!$inscricaoId) {
-                        throw new Exception('ID da inscrição não retornado na resposta: ' . json_encode($dadosInscricao));
-                    }
-
-                    Log::info('📝 INSCRIÇÃO CRIADA', ['inscricao_id' => $inscricaoId]);
 
                     // 3. Criar presença
                     $dataHora = $cadastro['presenca']['data_hora'];

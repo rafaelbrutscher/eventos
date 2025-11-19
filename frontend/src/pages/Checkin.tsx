@@ -125,7 +125,7 @@ function OfflineDashboard() {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div className="flex-1">
           <h3 className="font-bold text-2xl text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text mb-4 flex items-center gap-2">
-            🌐 Sistema Offline
+            Sistema Offline
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -144,7 +144,7 @@ function OfflineDashboard() {
               <p className={`text-lg font-bold ${
                 statusOffline.isOnline ? 'text-green-700' : 'text-red-700'
               }`}>
-                {statusOffline.isOnline ? '✅ Online' : '🔴 Offline'}
+                {statusOffline.isOnline ? 'Online' : 'Offline'}
               </p>
             </div>
 
@@ -152,7 +152,6 @@ function OfflineDashboard() {
             {statusOffline.cacheCompleto?.existe && (
               <div className="p-4 rounded-xl bg-blue-50 border-2 border-blue-200">
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="text-blue-500 text-lg">💾</span>
                   <span className="font-semibold text-gray-800">Cache Local</span>
                 </div>
                 <div className="space-y-1 text-sm text-blue-700">
@@ -163,11 +162,9 @@ function OfflineDashboard() {
               </div>
             )}
 
-            {/* Pendências */}
             {(cadastrosPendentes > 0 || checkinsPendentes > 0) && (
               <div className="p-4 rounded-xl bg-orange-50 border-2 border-orange-200">
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="text-orange-500 text-lg animate-pulse">⏳</span>
                   <span className="font-semibold text-gray-800">Pendências</span>
                 </div>
                 <div className="space-y-1 text-sm text-orange-700">
@@ -196,7 +193,7 @@ function OfflineDashboard() {
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
-                  📥 Baixar Dados
+                  Baixar Dados
                 </span>
               )}
             </button>
@@ -215,7 +212,7 @@ function OfflineDashboard() {
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
-                  🔄 Sincronizar
+                  Sincronizar
                   <span className="bg-white bg-opacity-20 px-2 py-1 rounded-full text-xs">
                     {cadastrosPendentes + checkinsPendentes}
                   </span>
@@ -236,32 +233,32 @@ function OfflineDashboard() {
           <button
             onClick={() => {
               const confirmacao = window.confirm(
-                '⚠️ ATENÇÃO: Esta ação irá limpar TODOS os dados offline:\n\n' +
-                '💾 Cache de eventos e participantes\n' +
-                '👥 Cadastros offline pendentes\n' +
-                '✅ Check-ins offline pendentes\n' +
-                '⚙️ Configurações de sincronização\n\n' +
-                '❌ Todos os dados não sincronizados serão PERDIDOS.\n\n' +
-                '🤔 Tem certeza que deseja continuar?'
+                'ATENÇÃO: Esta ação irá limpar TODOS os dados offline:\n\n' +
+                'Cache de eventos e participantes\n' +
+                'Cadastros offline pendentes\n' +
+                'Check-ins offline pendentes\n' +
+                'Configurações de sincronização\n\n' +
+                'Todos os dados não sincronizados serão PERDIDOS.\n\n' +
+                'Tem certeza que deseja continuar?'
               );
               
               if (confirmacao) {
                 try {
                   limparDadosOffline();
-                  alert('✅ Dados offline limpos com sucesso!');
+                  alert('Dados offline limpos com sucesso!');
                   setTimeout(() => {
                     window.location.reload();
                   }, 500);
                 } catch (error) {
                   console.error('Erro ao limpar dados offline:', error);
-                  alert('❌ Erro ao limpar dados offline. Verifique o console.');
+                  alert('Erro ao limpar dados offline. Verifique o console.');
                 }
               }
             }}
             className="px-6 py-3 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-xl hover:from-red-600 hover:to-rose-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold"
           >
             <span className="flex items-center gap-2">
-              🗑️ Limpar Cache
+              Limpar Cache
             </span>
           </button>
         </div>
@@ -269,7 +266,7 @@ function OfflineDashboard() {
       {mostrarDetalhes && (
         <div className="mt-6 p-5 bg-gray-50 rounded-xl border-2 border-gray-200 shadow-inner">
           <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-            🔧 Detalhes Técnicos do Sistema
+            Detalhes Técnicos do Sistema
           </h4>
           <div className="bg-gray-800 text-green-400 p-4 rounded-lg overflow-auto max-h-60 font-mono text-xs">
             <pre>{JSON.stringify(statusOffline, null, 2)}</pre>

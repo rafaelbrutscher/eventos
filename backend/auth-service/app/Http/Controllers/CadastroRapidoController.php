@@ -22,16 +22,18 @@ class CadastroRapidoController extends Controller
      */
     public function cadastroRapido(Request $request)
     {
-        Log::info('Iniciando cadastro rápido simples', [
+        Log::info('Iniciando cadastro rápido completo', [
             'service' => 'auth-service',
-            'action' => 'cadastro_rapido_simples',
+            'action' => 'cadastro_rapido_completo',
             'email' => $request->email,
+            'evento_id' => $request->evento_id,
             'ip' => $request->ip()
         ]);
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|between:2,100',
             'email' => 'required|string|email|max:100|unique:users',
+            'evento_id' => 'required|integer|min:1',
         ]);
 
         if($validator->fails()){
@@ -43,7 +45,7 @@ class CadastroRapidoController extends Controller
         }
 
         try {
-            // Criar apenas o usuário - sem pendências
+            // 1. Criar o usuário
             $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
@@ -53,15 +55,106 @@ class CadastroRapidoController extends Controller
                 'cadastro_rapido_em' => now(),
             ]);
 
-            Log::info('Cadastro rápido realizado com sucesso', [
+            Log::info('Usuário criado no cadastro rápido', [
+                'user_id' => $user->id,
+                'email' => $user->email
+            ]);
+
+            // 2. Criar inscrição no evento
+            $inscricaoData = [
+                'usuario_id' => $user->id,
+                'evento_id' => $request->evento_id,
+                'status_inscricao' => 'confirmado',
+                'data_inscricao' => now()->format('Y-m-d H:i:s'),
+                'cadastro_rapido' => true
+            ];
+
+            // URLs de fallback para o serviço de inscrições
+            $inscricoesUrls = [
+                'http://eventos_inscricoes:8000/api/inscricoes',
+                'http://127.0.0.1:8003/api/inscricoes',
+                'http://177.44.248.89:8003/api/inscricoes'
+            ];
+
+            $inscricao = null;
+            $inscricaoResponse = null;
+
+            // Obter o token do Authorization header
+            $authHeader = $request->header('Authorization');
+            $token = null;
+            if ($authHeader && str_starts_with($authHeader, 'Bearer ')) {
+                $token = substr($authHeader, 7);
+            }
+
+            foreach ($inscricoesUrls as $inscricaoUrl) {
+                try {
+                    Log::info('Tentando criar inscrição em', ['url' => $inscricaoUrl]);
+
+                    $headers = ['Content-Type' => 'application/json'];
+                    if ($token) {
+                        $headers['Authorization'] = 'Bearer ' . $token;
+                    }
+
+                    $inscricaoResponse = Http::timeout(30)
+                        ->withHeaders($headers)
+                        ->post($inscricaoUrl, $inscricaoData);
+
+                    if ($inscricaoResponse->successful()) {
+                        $inscricao = $inscricaoResponse->json();
+                        Log::info('Inscrição criada com sucesso', [
+                            'usuario_id' => $user->id,
+                            'evento_id' => $request->evento_id,
+                            'inscricao_id' => $inscricao['data']['id'] ?? 'N/A',
+                            'url_usada' => $inscricaoUrl
+                        ]);
+                        break;
+                    } else {
+                        Log::warning('Falha ao criar inscrição', [
+                            'url' => $inscricaoUrl,
+                            'status' => $inscricaoResponse->status(),
+                            'response' => $inscricaoResponse->body()
+                        ]);
+                    }
+                } catch (Exception $e) {
+                    Log::error('Erro ao tentar criar inscrição', [
+                        'url' => $inscricaoUrl,
+                        'error' => $e->getMessage()
+                    ]);
+                    continue;
+                }
+            }
+
+            // Verificar se a inscrição foi criada
+            if (!$inscricao || !$inscricaoResponse || !$inscricaoResponse->successful()) {
+                Log::error('Falha em todas as URLs de inscrição');
+                // Mesmo assim retornar sucesso para o usuário, mas sem inscrição
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Usuário criado, mas houve problema ao criar a inscrição',
+                    'data' => [
+                        'user' => [
+                            'id' => $user->id,
+                            'name' => $user->name,
+                            'email' => $user->email,
+                            'role' => $user->role,
+                            'cadastro_completo' => $user->cadastro_completo,
+                        ],
+                        'inscricao' => null,
+                        'warning' => 'Inscrição não foi criada automaticamente'
+                    ]
+                ], 201);
+            }
+
+            Log::info('Cadastro rápido completo realizado com sucesso', [
                 'service' => 'auth-service',
                 'action' => 'cadastro_rapido_success',
                 'user_id' => $user->id,
+                'inscricao_id' => $inscricao['data']['id'] ?? 'N/A'
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Usuário criado com sucesso',
+                'message' => 'Usuário e inscrição criados com sucesso',
                 'data' => [
                     'user' => [
                         'id' => $user->id,
@@ -69,7 +162,8 @@ class CadastroRapidoController extends Controller
                         'email' => $user->email,
                         'role' => $user->role,
                         'cadastro_completo' => $user->cadastro_completo,
-                    ]
+                    ],
+                    'inscricao' => $inscricao['data'] ?? null
                 ]
             ], 201);
 
