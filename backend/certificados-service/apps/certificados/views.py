@@ -536,18 +536,59 @@ def download_certificado(request, certificado_id):
         print(f'Certificado encontrado: {certificado.participante_nome} - {certificado.evento_nome}')
         logger.info(f'Certificado encontrado: {certificado.participante_nome} - {certificado.evento_nome}')
         
-        # Buscar dados atuais do usuário e evento
-        user_response = requests.get(f'http://177.44.248.89:8001/api/usuarios/{certificado.participante_id}', timeout=5)
-        evento_response = requests.get(f'http://177.44.248.89:8002/api/eventos/{certificado.evento_id}', timeout=5)
+        # Tentar buscar dados atuais com múltiplas URLs, mas usar dados do certificado como fallback
+        user_data = None
+        evento_data = None
         
-        if user_response.status_code != 200 or evento_response.status_code != 200:
-            return HttpResponse(
-                '<h1>Erro ao carregar dados do certificado</h1>', 
-                content_type='text/html'
-            )
+        # Tentar buscar usuário com múltiplas URLs
+        user_urls = [
+            f'http://eventos_auth:8000/api/usuarios/{certificado.participante_id}',
+            f'http://127.0.0.1:8001/api/usuarios/{certificado.participante_id}',
+            f'http://177.44.248.89:8001/api/usuarios/{certificado.participante_id}'
+        ]
         
-        user_data = user_response.json()['data']
-        evento_data = evento_response.json()['data']
+        for user_url in user_urls:
+            try:
+                user_response = requests.get(user_url, timeout=3)
+                if user_response.status_code == 200:
+                    user_data = user_response.json()['data']
+                    break
+            except:
+                continue
+        
+        # Se não conseguiu buscar usuário, usar dados do certificado
+        if not user_data:
+            user_data = {
+                'id': certificado.participante_id,
+                'name': certificado.participante_nome,
+                'email': certificado.participante_email
+            }
+        
+        # Tentar buscar evento com múltiplas URLs
+        evento_urls = [
+            f'http://eventos_eventos:8000/api/eventos/{certificado.evento_id}',
+            f'http://127.0.0.1:8002/api/eventos/{certificado.evento_id}',
+            f'http://177.44.248.89:8002/api/eventos/{certificado.evento_id}'
+        ]
+        
+        for evento_url in evento_urls:
+            try:
+                evento_response = requests.get(evento_url, timeout=3)
+                if evento_response.status_code == 200:
+                    evento_data = evento_response.json()['data']
+                    break
+            except:
+                continue
+        
+        # Se não conseguiu buscar evento, usar dados básicos do certificado
+        if not evento_data:
+            evento_data = {
+                'id': certificado.evento_id,
+                'nome': certificado.evento_nome,
+                'data_inicio': None,
+                'data_fim': None,
+                'descricao': certificado.evento_nome
+            }
         
         # Preparar contexto para o template
         contexto = preparar_contexto_template(evento_data, user_data, certificado.codigo_validacao)
