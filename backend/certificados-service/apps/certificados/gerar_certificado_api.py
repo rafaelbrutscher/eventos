@@ -16,11 +16,15 @@ def gerar_certificado(request):
     Endpoint: POST /api/gerar-certificado
     """
     try:
+        logger.info(f'=== 🎯 RECEBIDA SOLICITAÇÃO DE CERTIFICADO ===')
+        logger.info(f'Request method: {request.method}')
+        logger.info(f'Request headers: {dict(request.headers)}')
+        logger.info(f'Request data: {request.data}')
+        
         user_id = request.data.get('user_id')
         evento_id = request.data.get('evento_id')
         
-        logger.info(f'=== RECEBIDA SOLICITAÇÃO DE CERTIFICADO ===')
-        logger.info(f'User ID: {user_id}, Evento ID: {evento_id}')
+        logger.info(f'📋 Parâmetros extraídos - User ID: {user_id}, Evento ID: {evento_id}')
         
         if not user_id or not evento_id:
             return Response(

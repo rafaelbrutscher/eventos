@@ -23,12 +23,31 @@ def health_check(request):
         'timestamp': timezone.now().isoformat(),
         'database': db_status,
         'allowed_hosts': settings.ALLOWED_HOSTS,
-        'debug': settings.DEBUG
+        'debug': settings.DEBUG,
+        'endpoints': {
+            'gerar_certificado': '/api/gerar-certificado',
+            'health': '/health/',
+            'test': '/test-certificado/'
+        }
+    })
+
+def test_certificado(request):
+    """Endpoint de teste para verificar se a geração de certificado funciona"""
+    return JsonResponse({
+        'message': 'Serviço de certificados funcionando!',
+        'method': request.method,
+        'timestamp': timezone.now().isoformat(),
+        'test_data': {
+            'user_id': 1,
+            'evento_id': 1,
+            'status': 'ready_for_certificate_generation'
+        }
     })
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('health/', health_check, name='health_check'),
+    path('test-certificado/', test_certificado, name='test_certificado'),
     path('', include('apps.certificados.urls')),
 ]
 
