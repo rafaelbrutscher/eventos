@@ -38,19 +38,19 @@ export function ValidacaoCertificado() {
 
     if (resultado.valido) {
       return (
-        <div className={styles.loginForm} style={{ marginTop: '2rem', backgroundColor: '#e8f5e9' }}>
-          <h2 style={{ color: '#2e7d32' }}>✅ Certificado Válido</h2>
-          <p><strong>Participante:</strong> {resultado.participante_nome}</p>
-          <p><strong>Evento:</strong> {resultado.evento_nome}</p>
-          <p><strong>Código:</strong> {resultado.codigo}</p>
+        <div className={styles.loginForm} style={{ marginTop: '2rem', backgroundColor: '#e8f5e9', color: '#000' }}>
+          <h2 style={{ color: '#2e7d32' }}>Certificado Válido</h2>
+          <p style={{ color: '#000' }}><strong>Participante:</strong> {resultado.participante_nome}</p>
+          <p style={{ color: '#000' }}><strong>Evento:</strong> {resultado.evento_nome}</p>
+          <p style={{ color: '#000' }}><strong>Código:</strong> {resultado.codigo}</p>
         </div>
       );
     } else {
       return (
-        <div className={styles.loginForm} style={{ marginTop: '2rem', backgroundColor: '#ffebee' }}>
-          <h2 style={{ color: '#c62828' }}>❌ Certificado Inválido</h2>
-          <p><strong>Código:</strong> {resultado.codigo}</p>
-          <p><strong>Mensagem:</strong> {resultado.mensagem}</p>
+        <div className={styles.loginForm} style={{ marginTop: '2rem', backgroundColor: '#ffebee', color: '#000' }}>
+          <h2 style={{ color: '#c62828' }}>Certificado Inválido</h2>
+          <p style={{ color: '#000' }}><strong>Código:</strong> {resultado.codigo}</p>
+          <p style={{ color: '#000' }}><strong>Mensagem:</strong> {resultado.mensagem}</p>
         </div>
       );
     }
@@ -59,15 +59,15 @@ export function ValidacaoCertificado() {
   return (
     <div className={styles.loginContainer}>
       <form onSubmit={handleSubmit} className={styles.loginForm}>
-        <h1>🔍 Validação de Certificado</h1>
-        <div style={{ textAlign: 'left', marginTop: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px', fontSize: '14px' }}>
-          <p><strong>Como validar seu certificado:</strong></p>
-          <ol style={{ margin: '0.5rem 0', paddingLeft: '1.2rem' }}>
+        <h1>Validação de Certificado</h1>
+        <div style={{ textAlign: 'left', marginTop: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px', fontSize: '14px', color: '#000' }}>
+          <p style={{ color: '#000' }}><strong>Como validar seu certificado:</strong></p>
+          <ol style={{ margin: '0.5rem 0', paddingLeft: '1.2rem', color: '#333' }}>
             <li>Localize o código de validação impresso no certificado</li>
             <li>Digite o código exato no campo abaixo</li>
             <li>Clique em "Validar" para verificar a autenticidade</li>
           </ol>
-          <p style={{ margin: '0.5rem 0 0 0', color: '#666' }}>
+          <p style={{ margin: '0.5rem 0 0 0', color: '#333' }}>
             <em>O código geralmente está no rodapé do documento.</em>
           </p>
         </div>
