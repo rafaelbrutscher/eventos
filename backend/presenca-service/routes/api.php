@@ -17,6 +17,10 @@ Route::middleware([\App\Http\Middleware\JWTMiddleware::class, \App\Http\Middlewa
     // Sincronização offline em lote
     Route::post('/check-in/offline-sync', [PresencaController::class, 'offlineSync'])
         ->name('checkin.offline-sync');
+
+    // Sincronização de cadastros offline completos
+    Route::post('/cadastro-rapido/offline-sync', [PresencaController::class, 'sincronizarCadastrosOffline'])
+        ->name('cadastro-rapido.offline-sync');
 });
 
 // Rotas que requerem apenas autenticação JWT (qualquer usuário pode verificar)

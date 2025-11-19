@@ -8,6 +8,9 @@ import {
   baixarDadosCompletos,
   getEventosDisponiveis,
   getStatusOffline,
+  sincronizarTodosOffline,
+  getCadastrosOfflinePendentes,
+  getCheckinsOfflinePendentes,
   type Inscrito,
   type EventoBasico 
 } from '../services/presencaService';
@@ -18,12 +21,20 @@ import { OfflineStatus } from '../components/OfflineStatus';
 function OfflineDashboard() {
   const [statusOffline, setStatusOffline] = useState<any>({});
   const [carregandoDados, setCarregandoDados] = useState(false);
+  const [sincronizando, setSincronizando] = useState(false);
   const [mostrarDetalhes, setMostrarDetalhes] = useState(false);
+  const [cadastrosPendentes, setCadastrosPendentes] = useState(0);
+  const [checkinsPendentes, setCheckinsPendentes] = useState(0);
 
   useEffect(() => {
     const atualizarStatus = () => {
       const status = getStatusOffline();
+      const cadastros = getCadastrosOfflinePendentes();
+      const checkins = getCheckinsOfflinePendentes();
+      
       setStatusOffline(status);
+      setCadastrosPendentes(cadastros);
+      setCheckinsPendentes(checkins);
     };
     atualizarStatus();
     const interval = setInterval(atualizarStatus, 3000);
@@ -46,6 +57,38 @@ function OfflineDashboard() {
     }
   };
 
+  const handleSincronizarTodos = async () => {
+    if (!navigator.onLine) {
+      alert('Sincronização requer conexão com a internet');
+      return;
+    }
+
+    setSincronizando(true);
+    try {
+      const resultado = await sincronizarTodosOffline();
+      
+      let mensagem = resultado.message + '\n\n';
+      
+      if (resultado.detalhes.cadastros) {
+        mensagem += `Cadastros:\n- Total: ${resultado.detalhes.cadastros.detalhes.total}\n- Sucessos: ${resultado.detalhes.cadastros.detalhes.sucessos}\n- Falhas: ${resultado.detalhes.cadastros.detalhes.falhas}\n\n`;
+      }
+      
+      if (resultado.detalhes.checkins) {
+        mensagem += `Check-ins:\n- Total: ${resultado.detalhes.checkins.detalhes.total}\n- Sucessos: ${resultado.detalhes.checkins.detalhes.sucessos}\n- Falhas: ${resultado.detalhes.checkins.detalhes.falhas}`;
+      }
+      
+      alert(mensagem);
+      
+      // Recarregar página para atualizar listas
+      window.location.reload();
+      
+    } catch (error: any) {
+      alert(`Erro na sincronização: ${error.message}`);
+    } finally {
+      setSincronizando(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -64,10 +107,15 @@ function OfflineDashboard() {
                 ({statusOffline.cacheCompleto.tamanhoKB} KB)
               </p>
             )}
-            {statusOffline.checkinsPendentes > 0 && (
-              <p className="mt-1 text-orange-600">
-                {statusOffline.checkinsPendentes} check-ins pendentes de sincronização
-              </p>
+            {(cadastrosPendentes > 0 || checkinsPendentes > 0) && (
+              <div className="mt-1 text-orange-600">
+                {cadastrosPendentes > 0 && (
+                  <p>{cadastrosPendentes} cadastros pendentes</p>
+                )}
+                {checkinsPendentes > 0 && (
+                  <p>{checkinsPendentes} check-ins pendentes</p>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -79,6 +127,15 @@ function OfflineDashboard() {
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-sm"
             >
               {carregandoDados ? 'Baixando...' : 'Baixar Dados'}
+            </button>
+          )}
+          {statusOffline.isOnline && (cadastrosPendentes > 0 || checkinsPendentes > 0) && (
+            <button
+              onClick={handleSincronizarTodos}
+              disabled={sincronizando}
+              className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50 text-sm"
+            >
+              {sincronizando ? 'Sincronizando...' : `Sincronizar (${cadastrosPendentes + checkinsPendentes})`}
             </button>
           )}
           <button

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Carbon\Carbon;
 use Exception;
 
@@ -228,6 +229,21 @@ class PresencaController extends Controller
                 // Não falha o check-in por causa do email
             }
 
+            // Gerar certificado automaticamente após check-in
+            try {
+                $this->gerarCertificadoAutomatico($inscricaoId, $eventoId, $request->bearerToken());
+            } catch (Exception $e) {
+                Log::warning('Falha ao gerar certificado automático', [
+                    'service' => 'presenca-service',
+                    'action' => 'certificado_automatico_falha',
+                    'presenca_id' => $presenca->id,
+                    'inscricao_id' => $inscricaoId,
+                    'evento_id' => $eventoId,
+                    'error' => $e->getMessage()
+                ]);
+                // Não falha o check-in por causa do certificado
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Check-in realizado com sucesso',
@@ -333,6 +349,18 @@ class PresencaController extends Controller
                         'presenca_id' => $presenca->id
                     ];
                     $sucessos++;
+
+                    // Gerar certificado automaticamente para sync offline também
+                    try {
+                        $this->gerarCertificadoAutomatico($inscricaoId, $eventoId, $request->bearerToken());
+                    } catch (Exception $e) {
+                        Log::warning('Falha ao gerar certificado automático na sincronização', [
+                            'presenca_id' => $presenca->id,
+                            'inscricao_id' => $inscricaoId,
+                            'evento_id' => $eventoId,
+                            'error' => $e->getMessage()
+                        ]);
+                    }
 
                 } catch (Exception $e) {
                     $resultados[] = [
@@ -518,6 +546,195 @@ class PresencaController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Erro interno do servidor'
+            ], 500);
+        }
+    }
+
+    /**
+     * Gera certificado automaticamente após check-in
+     */
+    private function gerarCertificadoAutomatico($inscricaoId, $eventoId, $token)
+    {
+        try {
+            // Buscar dados da inscrição para obter o user_id
+            $inscricaoResponse = $this->inscricoesService->validarInscricao($inscricaoId, $token);
+
+            if (!$inscricaoResponse['success']) {
+                Log::warning('Não foi possível validar inscrição para certificado automático', [
+                    'inscricao_id' => $inscricaoId,
+                    'evento_id' => $eventoId
+                ]);
+                return;
+            }
+
+            $userId = $inscricaoResponse['data']['usuario_id'];
+
+            // Chamar o serviço de certificados para gerar certificado
+            $certificadosServiceUrl = 'http://177.44.248.89:8005/api/gerar-certificado';
+
+            $response = Http::timeout(10)->post($certificadosServiceUrl, [
+                'evento_id' => $eventoId,
+                'user_id' => $userId
+            ]);
+
+            if ($response->successful()) {
+                $responseData = $response->json();
+
+                Log::info('Certificado gerado automaticamente', [
+                    'service' => 'presenca-service',
+                    'action' => 'certificado_automatico_gerado',
+                    'inscricao_id' => $inscricaoId,
+                    'evento_id' => $eventoId,
+                    'user_id' => $userId,
+                    'certificado_id' => $responseData['data']['id'] ?? null
+                ]);
+            } else {
+                Log::warning('Falha ao gerar certificado automático - resposta não bem-sucedida', [
+                    'inscricao_id' => $inscricaoId,
+                    'evento_id' => $eventoId,
+                    'user_id' => $userId,
+                    'status_code' => $response->status(),
+                    'response_body' => $response->body()
+                ]);
+            }
+
+        } catch (Exception $e) {
+            Log::error('Erro ao gerar certificado automático', [
+                'inscricao_id' => $inscricaoId,
+                'evento_id' => $eventoId,
+                'error' => $e->getMessage(),
+                'stack_trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
+     * Sincroniza cadastros offline completos (usuário + inscrição + presença)
+     */
+    public function sincronizarCadastrosOffline(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'cadastros' => 'required|array',
+                'cadastros.*.usuario' => 'required|array',
+                'cadastros.*.usuario.name' => 'required|string',
+                'cadastros.*.usuario.email' => 'required|email',
+                'cadastros.*.inscricao' => 'required|array',
+                'cadastros.*.inscricao.evento_id' => 'required|integer',
+                'cadastros.*.presenca' => 'required|array',
+                'cadastros.*.presenca.data_hora' => 'required|string'
+            ]);
+
+            $resultados = [];
+            $sucessos = 0;
+            $falhas = 0;
+
+            foreach ($validated['cadastros'] as $cadastro) {
+                try {
+                    Log::info('Processando cadastro offline:', $cadastro['usuario']);
+
+                    // 1. Criar usuário
+                    $responseUsuario = Http::withToken($request->bearerToken())
+                        ->timeout(10)
+                        ->post('http://177.44.248.89:8001/api/cadastro-rapido', [
+                            'name' => $cadastro['usuario']['name'],
+                            'email' => $cadastro['usuario']['email'],
+                        ]);
+
+                    if (!$responseUsuario->successful()) {
+                        throw new Exception('Falha ao criar usuário: ' . $responseUsuario->body());
+                    }
+
+                    $dadosUsuario = $responseUsuario->json();
+                    $usuarioId = $dadosUsuario['data']['user']['id'];
+
+                    // 2. Criar inscrição
+                    $responseInscricao = Http::withToken($request->bearerToken())
+                        ->timeout(10)
+                        ->post('http://177.44.248.89:8003/api/inscricoes', [
+                            'usuario_id' => $usuarioId,
+                            'evento_id' => $cadastro['inscricao']['evento_id'],
+                            'status_inscricao' => 'confirmado'
+                        ]);
+
+                    if (!$responseInscricao->successful()) {
+                        throw new Exception('Falha ao criar inscrição: ' . $responseInscricao->body());
+                    }
+
+                    $dadosInscricao = $responseInscricao->json();
+                    $inscricaoId = $dadosInscricao['data']['id'];
+
+                    // 3. Criar presença
+                    $presenca = Presenca::create([
+                        'inscricao_id' => $inscricaoId,
+                        'evento_id' => $cadastro['inscricao']['evento_id'],
+                        'data_hora' => $cadastro['presenca']['data_hora'],
+                        'origem' => 'cadastro_rapido_sync',
+                        'operador_usuario_id' => $request->user()->id
+                    ]);
+
+                    // 4. Gerar certificado automático
+                    $this->gerarCertificadoAutomatico($inscricaoId, $cadastro['inscricao']['evento_id'], $request->bearerToken());
+
+                    $sucessos++;
+                    $resultados[] = [
+                        'nome' => $cadastro['usuario']['name'],
+                        'email' => $cadastro['usuario']['email'],
+                        'status' => 'sucesso',
+                        'usuario_id' => $usuarioId,
+                        'inscricao_id' => $inscricaoId,
+                        'presenca_id' => $presenca->id
+                    ];
+
+                    Log::info('Cadastro sincronizado com sucesso:', [
+                        'nome' => $cadastro['usuario']['name'],
+                        'usuario_id' => $usuarioId,
+                        'inscricao_id' => $inscricaoId
+                    ]);
+
+                } catch (Exception $e) {
+                    $falhas++;
+                    $resultados[] = [
+                        'nome' => $cadastro['usuario']['name'],
+                        'email' => $cadastro['usuario']['email'],
+                        'status' => 'erro',
+                        'erro' => $e->getMessage()
+                    ];
+
+                    Log::error('Erro ao sincronizar cadastro:', [
+                        'nome' => $cadastro['usuario']['name'],
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "Sincronização concluída: {$sucessos} sucessos, {$falhas} falhas",
+                'data' => [
+                    'total_processados' => count($validated['cadastros']),
+                    'sucessos' => $sucessos,
+                    'falhas' => $falhas,
+                    'resultados' => $resultados
+                ]
+            ]);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dados de entrada inválidos',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (Exception $e) {
+            Log::error('Erro na sincronização de cadastros offline:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro interno do servidor: ' . $e->getMessage()
             ], 500);
         }
     }

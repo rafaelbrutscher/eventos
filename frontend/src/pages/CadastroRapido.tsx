@@ -30,7 +30,8 @@ export function CadastroRapido() {
   // Contar cadastros offline ao carregar
   useEffect(() => {
     const dadosOffline = JSON.parse(localStorage.getItem('cadastrosOffline') || '[]');
-    setCadastrosOfflineCount(dadosOffline.length);
+    const pendentes = dadosOffline.filter((item: any) => !item.sincronizado);
+    setCadastrosOfflineCount(pendentes.length);
   }, [success]); // Recontar quando houver sucesso
 
   useEffect(() => {
@@ -105,14 +106,17 @@ export function CadastroRapido() {
   };
 
   // Função para salvar no localStorage (modo offline)
-  const salvarOffline = (dadosUsuario: any) => {
+  const salvarOffline = (cadastroCompleto: any) => {
     const dadosOffline = JSON.parse(localStorage.getItem('cadastrosOffline') || '[]');
-    dadosOffline.push({
-      ...dadosUsuario,
-      id: Date.now(), // ID temporário
-      timestamp: new Date().toISOString(),
-    });
+    dadosOffline.push(cadastroCompleto);
     localStorage.setItem('cadastrosOffline', JSON.stringify(dadosOffline));
+    
+    console.log('Cadastro completo salvo offline:', {
+      usuario: cadastroCompleto.usuario.name,
+      email: cadastroCompleto.usuario.email,
+      evento: cadastroCompleto.evento_nome,
+      timestamp: cadastroCompleto.timestamp
+    });
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -127,68 +131,62 @@ export function CadastroRapido() {
     setError(null);
     setSuccess(null);
 
-    const dadosUsuario = {
-      name: nome,
-      email: email,
-      evento_id: eventoSelecionado,
-      marcar_presenca: true, // Sempre true - criar inscrição
+    // Gerar IDs temporários para uso offline
+    const tempUserId = Date.now();
+    const tempInscricaoId = Date.now() + 1;
+    const tempPresencaId = Date.now() + 2;
+    const timestamp = new Date().toISOString();
+
+    // Dados completos do cadastro (usuário + inscrição + presença)
+    const cadastroCompleto = {
+      // Dados do usuário
+      usuario: {
+        id: tempUserId,
+        name: nome,
+        email: email,
+        role: 'participante'
+      },
+      // Dados da inscrição
+      inscricao: {
+        id: tempInscricaoId,
+        usuario_id: tempUserId,
+        evento_id: eventoSelecionado,
+        status_inscricao: 'confirmado',
+        data_inscricao: timestamp
+      },
+      // Dados da presença
+      presenca: {
+        id: tempPresencaId,
+        inscricao_id: tempInscricaoId,
+        evento_id: eventoSelecionado,
+        data_hora: timestamp,
+        origem: 'cadastro_rapido_offline'
+      },
+      // Metadados
+      timestamp,
+      evento_nome: eventos.find(e => e.id === eventoSelecionado)?.nome,
+      sincronizado: false
     };
 
     try {
-      // Tentar criar usuário online primeiro
-      const token = localStorage.getItem('authToken');
-      const response = await fetch('http://177.44.248.89:8001/api/cadastro-rapido', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: nome,
-          email: email,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          // Salvou online, agora salvar dados completos no localStorage para sincronização
-          salvarOffline({
-            ...dadosUsuario,
-            usuario_criado_online: true,
-            usuario_id: data.data.user.id,
-          });
-
-          setSuccess(
-            `Cadastro salvo offline com sucesso!\n` +
-            `Nome: ${nome}\n` +
-            `Email: ${email}\n` +
-            `Será inscrito no evento após sincronizar\n` +
-            `Para check-in: usar tela "Check-in" depois da sincronização\n\n` +
-            `Use o botão 'Sincronizar' para criar inscrição`
-          );
-        } else {
-          throw new Error(data.message || 'Erro no servidor');
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}`);
-      }
-    } catch (err: any) {
-      // Se falhou online, salvar completamente offline
-      salvarOffline({
-        ...dadosUsuario,
-        usuario_criado_online: false,
-      });
+      // Sempre salvar offline primeiro (modo offline-first)
+      salvarOffline(cadastroCompleto);
+      
+      // Adicionar à lista de inscritos local imediatamente
+      adicionarAoCacheLocal(cadastroCompleto);
 
       setSuccess(
-        `Cadastro salvo OFFLINE!\n` +
+        `Cadastro completo salvo offline!\n` +
         `Nome: ${nome}\n` +
         `Email: ${email}\n` +
-        `Evento: ${eventos.find(e => e.id === eventoSelecionado)?.nome}\n` +
-        `Para check-in: usar tela "Check-in" após sincronizar\n\n` +
-        `OFFLINE: Use 'Sincronizar' quando voltar online\n` +
-        `Erro: ${err.message}`
+        `Evento: ${cadastroCompleto.evento_nome}\n` +
+        `Status: Inscrito e com presença confirmada\n\n` +
+        `O participante já aparece na lista de check-in!\n` +
+        `Use 'Sincronizar' para enviar ao servidor`
       );
+
+    } catch (err: any) {
+      setError(`Erro ao salvar cadastro: ${err.message}`);
     }
 
     // Limpar formulário
@@ -196,6 +194,64 @@ export function CadastroRapido() {
     setEmail('');
     setEventoSelecionado(null);
     setLoading(false);
+  };
+
+  // Função para adicionar o novo inscrito ao cache local imediatamente
+  const adicionarAoCacheLocal = (cadastroCompleto: any) => {
+    try {
+      // Adicionar aos inscritos do evento no cache
+      const inscritosPorEvento = JSON.parse(localStorage.getItem('inscritosPorEvento') || '{}');
+      
+      if (!inscritosPorEvento[cadastroCompleto.inscricao.evento_id]) {
+        inscritosPorEvento[cadastroCompleto.inscricao.evento_id] = [];
+      }
+      
+      // Criar objeto inscrito compatível com o formato esperado
+      const novoInscrito = {
+        inscricao_id: cadastroCompleto.inscricao.id,
+        usuario_id: cadastroCompleto.usuario.id,
+        evento_id: cadastroCompleto.inscricao.evento_id,
+        nome: cadastroCompleto.usuario.name,
+        email: cadastroCompleto.usuario.email,
+        cpf: null,
+        status_inscricao: cadastroCompleto.inscricao.status_inscricao,
+        ja_tem_presenca: true, // Já tem presença porque foi criada junto
+        data_inscricao: cadastroCompleto.inscricao.data_inscricao,
+        origem: 'cadastro_rapido_offline'
+      };
+      
+      inscritosPorEvento[cadastroCompleto.inscricao.evento_id].push(novoInscrito);
+      localStorage.setItem('inscritosPorEvento', JSON.stringify(inscritosPorEvento));
+      
+      // Também atualizar o cache do presencaService
+      const cachePresenca = JSON.parse(localStorage.getItem('cached_presenca_lists') || '{}');
+      
+      if (cachePresenca[cadastroCompleto.inscricao.evento_id]) {
+        cachePresenca[cadastroCompleto.inscricao.evento_id].data.inscritos.push(novoInscrito);
+        cachePresenca[cadastroCompleto.inscricao.evento_id].data.total_inscritos++;
+        cachePresenca[cadastroCompleto.inscricao.evento_id].data.total_presencas++;
+      } else {
+        // Criar entrada no cache se não existir
+        const eventoData = eventos.find(e => e.id === cadastroCompleto.inscricao.evento_id);
+        cachePresenca[cadastroCompleto.inscricao.evento_id] = {
+          success: true,
+          data: {
+            evento: eventoData,
+            inscritos: [novoInscrito],
+            total_inscritos: 1,
+            total_presencas: 1
+          },
+          timestamp: Date.now()
+        };
+      }
+      
+      localStorage.setItem('cached_presenca_lists', JSON.stringify(cachePresenca));
+      
+      console.log('Novo inscrito adicionado ao cache local:', novoInscrito);
+      
+    } catch (error) {
+      console.error('Erro ao adicionar ao cache local:', error);
+    }
   };
 
   // Verificar se usuário pode acessar

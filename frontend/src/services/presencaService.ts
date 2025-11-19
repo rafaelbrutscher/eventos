@@ -497,6 +497,78 @@ export const realizarCheckin = async (payload: CheckinPayload): Promise<CheckinR
 };
 
 /**
+ * Sincroniza cadastros offline completos (usuário + inscrição + presença)
+ */
+export const sincronizarCadastrosOffline = async (): Promise<{
+  success: boolean;
+  message: string;
+  detalhes: {
+    total: number;
+    sucessos: number;
+    falhas: number;
+    resultados: any[];
+  };
+}> => {
+  if (!isOnline()) {
+    throw new Error('Sincronização requer conexão com a internet');
+  }
+
+  const cadastrosOffline = JSON.parse(localStorage.getItem('cadastrosOffline') || '[]');
+  const pendentes = cadastrosOffline.filter((c: any) => !c.sincronizado);
+
+  if (pendentes.length === 0) {
+    return {
+      success: true,
+      message: 'Nenhum cadastro offline para sincronizar',
+      detalhes: {
+        total: 0,
+        sucessos: 0,
+        falhas: 0,
+        resultados: []
+      }
+    };
+  }
+
+  try {
+    // Usar endpoint único para sincronizar todos os cadastros
+    const { data } = await privateApi.post('/cadastro-rapido/offline-sync', {
+      cadastros: pendentes
+    });
+
+    console.log('Resposta da sincronização:', data);
+
+    if (data.success) {
+      // Marcar todos como sincronizados
+      pendentes.forEach((cadastro: any) => {
+        cadastro.sincronizado = true;
+      });
+      
+      // Salvar cadastros atualizados
+      localStorage.setItem('cadastrosOffline', JSON.stringify(cadastrosOffline));
+    }
+
+    return {
+      success: data.success,
+      message: data.message,
+      detalhes: {
+        total: data.data.total_processados,
+        sucessos: data.data.sucessos,
+        falhas: data.data.falhas,
+        resultados: data.data.resultados
+      }
+    };
+
+  } catch (error: any) {
+    console.error('Erro na sincronização:', error);
+    throw new Error(error.response?.data?.message || 'Falha na sincronização de cadastros');
+  }
+  
+  // Limpar cache para forçar reload
+  localStorage.removeItem(STORAGE_KEYS.CACHED_LISTS);
+  localStorage.removeItem(STORAGE_KEYS.CACHE_COMPLETO);
+};
+
+/**
  * Sincroniza check-ins offline com o servidor
  */
 export const sincronizarCheckinsOffline = async (): Promise<{
@@ -573,10 +645,62 @@ export const sincronizarCheckinsOffline = async (): Promise<{
 };
 
 /**
+ * Sincroniza todos os dados offline (cadastros + check-ins)
+ */
+export const sincronizarTodosOffline = async (): Promise<{
+  success: boolean;
+  message: string;
+  detalhes: {
+    cadastros: any;
+    checkins: any;
+  };
+}> => {
+  if (!isOnline()) {
+    throw new Error('Sincronização requer conexão com a internet');
+  }
+
+  const resultados = {
+    cadastros: null as any,
+    checkins: null as any
+  };
+
+  try {
+    // 1. Sincronizar cadastros offline primeiro
+    console.log('=== Sincronizando cadastros offline ===');
+    resultados.cadastros = await sincronizarCadastrosOffline();
+    
+    // 2. Sincronizar check-ins offline
+    console.log('=== Sincronizando check-ins offline ===');
+    resultados.checkins = await sincronizarCheckinsOffline();
+    
+    const totalSucessos = (resultados.cadastros.detalhes.sucessos || 0) + (resultados.checkins.detalhes.sucessos || 0);
+    const totalFalhas = (resultados.cadastros.detalhes.falhas || 0) + (resultados.checkins.detalhes.falhas || 0);
+    
+    return {
+      success: totalSucessos > 0,
+      message: `Sincronização completa: ${totalSucessos} sucessos, ${totalFalhas} falhas`,
+      detalhes: resultados
+    };
+    
+  } catch (error: any) {
+    console.error('Erro na sincronização completa:', error);
+    throw new Error(error.message || 'Falha na sincronização');
+  }
+};
+
+/**
  * Verifica quantos check-ins estão pendentes de sincronização
  */
 export const getCheckinsOfflinePendentes = (): number => {
   return getCheckinsOffline().filter(c => !c.sincronizado).length;
+};
+
+/**
+ * Verifica quantos cadastros estão pendentes de sincronização
+ */
+export const getCadastrosOfflinePendentes = (): number => {
+  const cadastros = JSON.parse(localStorage.getItem('cadastrosOffline') || '[]');
+  return cadastros.filter((c: any) => !c.sincronizado).length;
 };
 
 /**

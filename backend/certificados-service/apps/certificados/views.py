@@ -241,8 +241,8 @@ def gerar_certificado_usuario(request):
             })
         
         # Buscar dados do usuário e evento
-        user_response = requests.get(f'http://177.44.248.89:8001/api/usuarios/{user_id}')
-        evento_response = requests.get(f'http://177.44.248.89:8002/api/eventos/{evento_id}')
+        user_response = requests.get(f'http://177.44.248.89:8001/api/usuarios/{user_id}', timeout=5)
+        evento_response = requests.get(f'http://177.44.248.89:8002/api/eventos/{evento_id}', timeout=5)
         
         if user_response.status_code != 200:
             return Response(
@@ -298,8 +298,8 @@ def download_certificado(request, certificado_id):
         certificado = get_object_or_404(Certificado, id=certificado_id)
         
         # Buscar dados atuais do usuário e evento
-        user_response = requests.get(f'http://177.44.248.89:8001/api/usuarios/{certificado.participante_id}')
-        evento_response = requests.get(f'http://177.44.248.89:8002/api/eventos/{certificado.evento_id}')
+        user_response = requests.get(f'http://177.44.248.89:8001/api/usuarios/{certificado.participante_id}', timeout=5)
+        evento_response = requests.get(f'http://177.44.248.89:8002/api/eventos/{certificado.evento_id}', timeout=5)
         
         if user_response.status_code != 200 or evento_response.status_code != 200:
             return HttpResponse(
