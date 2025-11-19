@@ -42,14 +42,6 @@ class AuthService
                 return ['exists' => false, 'data' => null];
             }
 
-            Log::error('Erro na validação do usuário', [
-                'service' => 'inscricoes-service',
-                'action' => 'validate_user_error',
-                'usuario_id' => $usuarioId,
-                'status_code' => $response->status(),
-                'response' => $response->body()
-            ]);
-
             throw new Exception("Erro ao validar usuário: HTTP {$response->status()}");
 
         } catch (Exception $e) {

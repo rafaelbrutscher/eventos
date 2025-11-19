@@ -22,13 +22,6 @@ class AuthController extends Controller
      */
     public function register(Request $request)
     {
-        Log::info('Iniciando processo de registro de usuário', [
-            'service' => 'auth-service',
-            'action' => 'register_attempt',
-            'email' => $request->email,
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent()
-        ]);
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|between:2,100',
             'email' => 'required|string|email|max:100|unique:users',
@@ -47,16 +40,6 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password)
-        ]);
-
-        Log::info('Usuário registrado com sucesso', [
-            'service' => 'auth-service',
-            'action' => 'register_success',
-            'user_id' => $user->id,
-            'user_name' => $user->name,
-            'user_email' => $user->email,
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent()
         ]);
 
         return response()->json([
@@ -80,14 +63,6 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
-        Log::info('Iniciando processo de login', [
-            'service' => 'auth-service',
-            'action' => 'login_attempt',
-            'email' => $request->email,
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent()
-        ]);
-
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
             'password' => 'required|string|min:6',
@@ -104,15 +79,6 @@ class AuthController extends Controller
         $credentials = $request->only('email', 'password');
 
         if (!$token = Auth::guard('api')->attempt($credentials)) {
-            Log::warning('Tentativa de login com credenciais inválidas', [
-                'service' => 'auth-service',
-                'action' => 'login_failed',
-                'email' => $request->email,
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-                'timestamp' => now()->toDateTimeString()
-            ]);
-
             return response()->json([
                 'success' => false,
                 'message' => 'Credenciais inválidas'
@@ -120,18 +86,6 @@ class AuthController extends Controller
         }
 
         $user = Auth::guard('api')->user();
-
-        Log::info('Login realizado com sucesso', [
-            'service' => 'auth-service',
-            'action' => 'login_success',
-            'user_id' => $user->id,
-            'user_name' => $user->name,
-            'user_email' => $user->email,
-            'token_expires_in' => config('jwt.ttl') * 60,
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'timestamp' => now()->toDateTimeString()
-        ]);
 
         return response()->json([
             'success' => true,
@@ -181,12 +135,6 @@ class AuthController extends Controller
     {
         $user = Auth::guard('api')->user();
 
-        Log::info('Logout realizado', [
-            'user_id' => $user->id,
-            'email' => $user->email,
-            'ip' => request()->ip()
-        ]);
-
         JWTAuth::invalidate(JWTAuth::getToken());
 
         return response()->json([
@@ -224,14 +172,6 @@ class AuthController extends Controller
     {
         $user = Auth::guard('api')->user();
 
-        Log::info('Iniciando atualização de perfil', [
-            'service' => 'auth-service',
-            'action' => 'update_profile_attempt',
-            'user_id' => $user->id,
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent()
-        ]);
-
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|between:2,100',
             'email' => 'required|string|email|max:100|unique:users,email,' . $user->id,
@@ -266,17 +206,6 @@ class AuthController extends Controller
         }
 
         $user->save();
-
-        Log::info('Perfil atualizado com sucesso', [
-            'service' => 'auth-service',
-            'action' => 'update_profile_success',
-            'user_id' => $user->id,
-            'user_name' => $user->name,
-            'user_email' => $user->email,
-            'password_changed' => $request->filled('password'),
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent()
-        ]);
 
         return response()->json([
             'success' => true,
@@ -335,13 +264,6 @@ class AuthController extends Controller
      */
     public function cadastroRapido(Request $request)
     {
-        Log::info('Iniciando cadastro rápido', [
-            'service' => 'auth-service',
-            'action' => 'cadastro_rapido',
-            'email' => $request->email,
-            'ip' => $request->ip()
-        ]);
-
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|between:2,100',
             'email' => 'required|string|email|max:100|unique:users',
@@ -363,13 +285,6 @@ class AuthController extends Controller
                 'role' => 'participante',
                 'cadastro_completo' => false,
                 'cadastro_rapido_em' => now(),
-            ]);
-
-            Log::info('Cadastro rápido realizado com sucesso', [
-                'service' => 'auth-service',
-                'action' => 'cadastro_rapido_success',
-                'user_id' => $user->id,
-                'email' => $user->email
             ]);
 
             return response()->json([
@@ -408,13 +323,6 @@ class AuthController extends Controller
      */
     public function completarCadastro(Request $request)
     {
-        Log::info('Tentativa de completar cadastro', [
-            'service' => 'auth-service',
-            'action' => 'completar_cadastro',
-            'email' => $request->email,
-            'ip' => $request->ip()
-        ]);
-
         $validator = Validator::make($request->all(), [
             'email' => 'required|string|email|exists:users,email',
             'password' => 'required|string|min:6|confirmed',
@@ -450,13 +358,6 @@ class AuthController extends Controller
             // Gerar token JWT
             $token = JWTAuth::fromUser($user);
 
-            Log::info('Cadastro completado com sucesso', [
-                'service' => 'auth-service',
-                'action' => 'completar_cadastro_success',
-                'user_id' => $user->id,
-                'email' => $user->email
-            ]);
-
             return response()->json([
                 'success' => true,
                 'message' => 'Cadastro completado com sucesso',
@@ -475,12 +376,6 @@ class AuthController extends Controller
             ], 200);
 
         } catch (Exception $e) {
-            Log::error('Erro ao completar cadastro', [
-                'service' => 'auth-service',
-                'action' => 'completar_cadastro_error',
-                'error' => $e->getMessage()
-            ]);
-
             return response()->json([
                 'success' => false,
                 'message' => 'Erro ao completar cadastro'

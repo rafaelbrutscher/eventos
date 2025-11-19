@@ -170,12 +170,6 @@ class InscricaoController extends Controller
 
             // Verifica se já tem inscrição ativa neste evento
             if (Inscricao::hasActiveInscription($usuarioId, $eventoId)) {
-                Log::warning('Tentativa de inscrição duplicada', [
-                    'service' => 'inscricoes-service',
-                    'action' => 'duplicate_inscription',
-                    'usuario_id' => $usuarioId,
-                    'evento_id' => $eventoId
-                ]);
 
                 return response()->json([
                     'success' => false,
@@ -203,13 +197,6 @@ class InscricaoController extends Controller
                             $eventValidation['data'],
                             $usuarioDetails
                         ));
-
-                        Log::info('Email de confirmação enviado', [
-                            'service' => 'inscricoes-service',
-                            'action' => 'email_confirmacao_enviado',
-                            'inscricao_id' => $inscricao->id,
-                            'email' => $usuarioDetails['email']
-                        ]);
                     }
                 } catch (Exception $e) {
                     Log::warning('Falha ao enviar email de confirmação', [
@@ -220,13 +207,6 @@ class InscricaoController extends Controller
                     ]);
                     // Não falha a inscrição por causa do email
                 }
-            } else {
-                Log::info('Email de confirmação pulado para cadastro rápido', [
-                    'service' => 'inscricoes-service',
-                    'action' => 'email_confirmacao_skipped_cadastro_rapido',
-                    'inscricao_id' => $inscricao->id,
-                    'usuario_id' => $usuarioId
-                ]);
             }
 
             return response()->json([
@@ -391,12 +371,6 @@ class InscricaoController extends Controller
                         $usuarioDetails
                     ));
 
-                    Log::info('Email de cancelamento enviado', [
-                        'service' => 'inscricoes-service',
-                        'action' => 'email_cancelamento_enviado',
-                        'inscricao_id' => $inscricao->id,
-                        'email' => $usuarioDetails['email']
-                    ]);
                 } catch (Exception $e) {
                     Log::warning('Falha ao enviar email de cancelamento', [
                         'service' => 'inscricoes-service',

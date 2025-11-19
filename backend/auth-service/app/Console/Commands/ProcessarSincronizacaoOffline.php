@@ -104,10 +104,6 @@ class ProcessarSincronizacaoOffline extends Command
             ]);
 
             if (!$inscricaoResponse->successful()) {
-                Log::error('Erro na sincronização de inscrição', [
-                    'pendencia_id' => $pendencia->id,
-                    'response' => $inscricaoResponse->body()
-                ]);
                 return false;
             }
 
@@ -134,11 +130,6 @@ class ProcessarSincronizacaoOffline extends Command
                         ]);
                         // Não falha a sincronização por causa da presença
                     } else {
-                        Log::info('Presença sincronizada com sucesso', [
-                            'pendencia_id' => $pendencia->id,
-                            'inscricao_id' => $inscricaoId,
-                            'evento_id' => $pendencia->evento_id
-                        ]);
                     }
                 } else {
                     Log::warning('ID da inscrição não encontrado para marcar presença', [
@@ -157,11 +148,6 @@ class ProcessarSincronizacaoOffline extends Command
                     'updated_at' => now()
                 ]);
 
-            Log::info('Sincronização de cadastro rápido concluída', [
-                'pendencia_id' => $pendencia->id,
-                'usuario_id' => $pendencia->usuario_id,
-                'evento_id' => $pendencia->evento_id
-            ]);
 
             return true;
 

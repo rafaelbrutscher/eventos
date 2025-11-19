@@ -17,25 +17,9 @@ class EventoController extends Controller
     public function index()
     {
         try {
-            Log::info('Iniciando busca de eventos ativos', [
-                'service' => 'eventos-service',
-                'action' => 'list_events',
-                'ip' => request()->ip(),
-                'user_agent' => request()->userAgent()
-            ]);
-
             $eventos = Event::where('data_fim', '>=', now())
                            ->orderBy('data_inicio', 'asc')
                            ->get();
-
-            // Log da consulta de eventos bem-sucedida
-            Log::info('Listagem de eventos retornada com sucesso', [
-                'service' => 'eventos-service',
-                'action' => 'list_events_success',
-                'total_eventos' => $eventos->count(),
-                'eventos_encontrados' => $eventos->pluck('nome'),
-                'ip' => request()->ip()
-            ]);
 
             return response()->json([
                 'success' => true,
@@ -81,38 +65,15 @@ class EventoController extends Controller
     public function show($id)
     {
         try {
-            Log::info('Buscando detalhes do evento', [
-                'service' => 'eventos-service',
-                'action' => 'show_event',
-                'evento_id' => $id,
-                'ip' => request()->ip(),
-                'user_agent' => request()->userAgent()
-            ]);
-
             $evento = Event::find($id);
 
             if (!$evento) {
-                Log::warning('Evento não encontrado', [
-                    'service' => 'eventos-service',
-                    'action' => 'show_event_not_found',
-                    'evento_id' => $id,
-                    'ip' => request()->ip()
-                ]);
 
                 return response()->json([
                     'success' => false,
                     'message' => 'Evento não encontrado'
                 ], 404);
             }
-
-            // Log da consulta de evento específico bem-sucedida
-            Log::info('Detalhes do evento retornados com sucesso', [
-                'service' => 'eventos-service',
-                'action' => 'show_event_success',
-                'evento_id' => $id,
-                'evento_nome' => $evento->nome,
-                'ip' => request()->ip()
-            ]);
 
             return response()->json([
                 'success' => true,

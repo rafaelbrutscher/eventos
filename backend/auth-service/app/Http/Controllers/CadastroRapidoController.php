@@ -22,14 +22,6 @@ class CadastroRapidoController extends Controller
      */
     public function cadastroRapido(Request $request)
     {
-        Log::info('Iniciando cadastro rápido completo', [
-            'service' => 'auth-service',
-            'action' => 'cadastro_rapido_completo',
-            'email' => $request->email,
-            'evento_id' => $request->evento_id,
-            'ip' => $request->ip()
-        ]);
-
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|between:2,100',
             'email' => 'required|string|email|max:100|unique:users',
@@ -53,11 +45,6 @@ class CadastroRapidoController extends Controller
                 'role' => 'participante',
                 'cadastro_completo' => false,
                 'cadastro_rapido_em' => now(),
-            ]);
-
-            Log::info('Usuário criado no cadastro rápido', [
-                'user_id' => $user->id,
-                'email' => $user->email
             ]);
 
             // 2. Criar inscrição no evento
@@ -88,8 +75,6 @@ class CadastroRapidoController extends Controller
 
             foreach ($inscricoesUrls as $inscricaoUrl) {
                 try {
-                    Log::info('Tentando criar inscrição em', ['url' => $inscricaoUrl]);
-
                     $headers = ['Content-Type' => 'application/json'];
                     if ($token) {
                         $headers['Authorization'] = 'Bearer ' . $token;
@@ -101,12 +86,6 @@ class CadastroRapidoController extends Controller
 
                     if ($inscricaoResponse->successful()) {
                         $inscricao = $inscricaoResponse->json();
-                        Log::info('Inscrição criada com sucesso', [
-                            'usuario_id' => $user->id,
-                            'evento_id' => $request->evento_id,
-                            'inscricao_id' => $inscricao['data']['id'] ?? 'N/A',
-                            'url_usada' => $inscricaoUrl
-                        ]);
                         break;
                     } else {
                         Log::warning('Falha ao criar inscrição', [
@@ -126,7 +105,6 @@ class CadastroRapidoController extends Controller
 
             // Verificar se a inscrição foi criada
             if (!$inscricao || !$inscricaoResponse || !$inscricaoResponse->successful()) {
-                Log::error('Falha em todas as URLs de inscrição');
                 // Mesmo assim retornar sucesso para o usuário, mas sem inscrição
                 return response()->json([
                     'success' => true,
@@ -144,13 +122,6 @@ class CadastroRapidoController extends Controller
                     ]
                 ], 201);
             }
-
-            Log::info('Cadastro rápido completo realizado com sucesso', [
-                'service' => 'auth-service',
-                'action' => 'cadastro_rapido_success',
-                'user_id' => $user->id,
-                'inscricao_id' => $inscricao['data']['id'] ?? 'N/A'
-            ]);
 
             return response()->json([
                 'success' => true,
@@ -192,11 +163,6 @@ class CadastroRapidoController extends Controller
      */
     public function sincronizarLote(Request $request)
     {
-        Log::info('Iniciando sincronização em lote', [
-            'service' => 'auth-service',
-            'action' => 'sincronizacao_lote',
-        ]);
-
         $validator = Validator::make($request->all(), [
             'usuarios' => 'required|array',
             'usuarios.*.name' => 'required|string|between:2,100',
@@ -233,7 +199,6 @@ class CadastroRapidoController extends Controller
 
                     if ($existeUsuario) {
                         $user = $existeUsuario;
-                        Log::info('Usuário já existe, usando existente', ['email' => $user->email, 'id' => $user->id]);
                     } else {
                         // Criar novo usuário
                         $user = User::create([
@@ -244,7 +209,6 @@ class CadastroRapidoController extends Controller
                             'cadastro_completo' => false,
                             'cadastro_rapido_em' => now(),
                         ]);
-                        Log::info('Novo usuário criado', ['email' => $user->email, 'id' => $user->id]);
                     }
 
                     $resultado = [
@@ -276,13 +240,7 @@ class CadastroRapidoController extends Controller
                                 $resultado['inscricao'] = $inscricaoData['data'] ?? 'Criada com sucesso';
                                 // Guardar ID da inscrição para usar na presença
                                 $inscricaoId = $inscricaoData['data']['id'] ?? null;
-                                Log::info('Inscrição criada', ['usuario_id' => $user->id, 'evento_id' => $usuarioData['evento_id'], 'inscricao_id' => $inscricaoId]);
                             } else {
-                                Log::warning('Falha ao criar inscrição', [
-                                    'usuario_id' => $user->id,
-                                    'evento_id' => $usuarioData['evento_id'],
-                                    'response' => $inscricaoResponse->body()
-                                ]);
                                 $inscricaoId = null;
                             }
                         } catch (Exception $e) {
@@ -296,11 +254,6 @@ class CadastroRapidoController extends Controller
                                 'message' => 'Inscrito cadastrado. Fazer check-in pela tela de Check-in.',
                                 'inscricao_id' => $inscricaoId
                             ];
-                            Log::info('Cadastro marcado para check-in posterior', [
-                                'usuario_id' => $user->id,
-                                'evento_id' => $usuarioData['evento_id'],
-                                'inscricao_id' => $inscricaoId
-                            ]);
                         }
                     }
 
@@ -319,14 +272,6 @@ class CadastroRapidoController extends Controller
                     ];
                 }
             }
-
-            Log::info('Sincronização em lote concluída', [
-                'service' => 'auth-service',
-                'action' => 'sincronizacao_lote_concluida',
-                'total' => count($usuarios),
-                'processados' => $processados,
-                'erros' => $erros
-            ]);
 
             return response()->json([
                 'success' => true,
